@@ -1392,6 +1392,7 @@ def execute_once(
         pod = client.create_pod(payload)
         write_json(paths.metadata_dir / "pod-created.json", pod)
         pod_id = str(pod["id"])
+        selected_gpu_type = ((pod.get("machine") or {}).get("gpuTypeId")) or selected_gpu_type
         append_log(log_path, f"pod_id={pod_id}")
 
         append_log(log_path, "waiting for pod to expose SSH")
