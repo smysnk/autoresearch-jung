@@ -523,7 +523,8 @@ def write_tracked_reports(
     cfg: RunpodConfig,
     gpu_type_ids: list[str],
     gpu_type_priority: str,
-    pod: dict[str, Any] | None,
+    selected_gpu_type: str | None,
+    cost_per_hr: float | int | str | None,
     exit_code: int,
     summary: dict[str, str],
 ) -> None:
@@ -540,8 +541,8 @@ def write_tracked_reports(
             "profile_name": profile_name(cfg.profile),
             "gpu_type_ids": gpu_type_ids,
             "gpu_type_priority": gpu_type_priority,
-            "selected_gpu_type": ((pod or {}).get("machine") or {}).get("gpuTypeId"),
-            "cost_per_hr": (pod or {}).get("costPerHr"),
+            "selected_gpu_type": selected_gpu_type,
+            "cost_per_hr": cost_per_hr,
             "exit_code": exit_code,
             "metrics": summary,
         },
@@ -1373,6 +1374,7 @@ def execute_once(
     remote_repo_dir = posixpath.join(cfg.remote_base_dir, "executions", paths.execution_dir.name)
     client = RunpodClient(cfg.api_key)
     pod_id = ""
+    selected_gpu_type: str | None = None
     try:
         gpu_type_ids, gpu_type_priority = resolve_gpu_selection(client, cfg, paths)
         write_json(
@@ -1396,6 +1398,7 @@ def execute_once(
 
         append_log(log_path, "waiting for pod to expose SSH")
         pod, conn = wait_for_pod_ready(client, pod_id, cfg, paths)
+        selected_gpu_type = ((pod.get("machine") or {}).get("gpuTypeId")) or selected_gpu_type
         append_log(log_path, f"pod public_ip={conn.host} ssh_port={conn.port}")
 
         append_log(log_path, "waiting for SSH to accept connections")
@@ -1436,7 +1439,8 @@ def execute_once(
             cfg=cfg,
             gpu_type_ids=gpu_type_ids,
             gpu_type_priority=gpu_type_priority,
-            pod=final_pod,
+            selected_gpu_type=((final_pod.get("machine") or {}).get("gpuTypeId")) or selected_gpu_type,
+            cost_per_hr=final_pod.get("costPerHr"),
             exit_code=exit_code,
             summary=summary,
         )

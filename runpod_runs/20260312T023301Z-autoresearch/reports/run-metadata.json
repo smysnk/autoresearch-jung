@@ -25,5 +25,5 @@
   },
   "profile": 1,
   "profile_name": "80GB Stable",
-  "selected_gpu_type": null
+  "selected_gpu_type": "NVIDIA H100 80GB HBM3"
 }
