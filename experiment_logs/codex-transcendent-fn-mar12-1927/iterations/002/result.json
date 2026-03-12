@@ -1,0 +1,56 @@
+{
+  "active_tension_count": 4,
+  "active_tension_ids": [
+    "value-embeddings-vs-simplicity",
+    "capacity-vs-throughput",
+    "locality-vs-global-context",
+    "aggression-vs-stability"
+  ],
+  "actual_train_diff_patch": "iterations/002/actual/train.diff.patch",
+  "actual_train_py": "iterations/002/actual/train.py",
+  "completed_at": "2026-03-12T23:56:04Z",
+  "contradicted_assumption": null,
+  "created_at": "2026-03-12T23:46:47Z",
+  "execution_dir": "runpod_runs/20260312T234647Z-autoresearch-exp02",
+  "execution_id": "20260312T234647Z-autoresearch-exp02",
+  "exit_code": 0,
+  "framing_diagnosis": null,
+  "iteration": 2,
+  "iteration_label": "002",
+  "keep_discard_status": null,
+  "next_move_type": null,
+  "outcome": null,
+  "reflect_modified_files": [],
+  "reflect_phase_path": "iterations/002/codex/reflect",
+  "reflect_summary": null,
+  "schema_version": 1,
+  "session_id": "codex-transcendent-fn-mar12-1927",
+  "status": "completed",
+  "summary": {
+    "depth": "8",
+    "mfu_percent": "39.62",
+    "num_params_M": "33.6",
+    "num_steps": "949",
+    "peak_vram_mb": "43900.2",
+    "total_seconds": "325.2",
+    "total_tokens_M": "497.5",
+    "training_seconds": "300.2",
+    "val_bpb": "1.010328"
+  },
+  "summary_text": null,
+  "tensions_path": "iterations/002/tensions",
+  "transcendent_result": {
+    "antithesis_ref": "value-embeddings-vs-simplicity:antithesis",
+    "concrete_change": "Keep `USE_VALUE_EMBEDDINGS = False`, set `DEPTH = 10`, and lower `ASPECT_RATIO` to 48 so the branch tests deeper plain capacity as the third option.",
+    "emergent_thought": "If the plain baseline survives but gives back a little quality, the most plausible repair is to turn some of the removed novelty budget into extra ordinary depth rather than restoring the full value-embedding mechanism.",
+    "result_status": "proposed",
+    "schema_version": 1,
+    "source_tension_ids": [
+      "capacity-vs-throughput",
+      "value-embeddings-vs-simplicity"
+    ],
+    "tested_in_iteration": false,
+    "thesis_ref": "capacity-vs-throughput:thesis"
+  },
+  "transcendent_result_path": "iterations/002/transcendent/result.json"
+}

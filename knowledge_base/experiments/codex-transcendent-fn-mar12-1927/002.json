@@ -17,28 +17,28 @@
     "value-embeddings-vs-simplicity"
   ],
   "branch": "codex/transcendent/fn-mar12-1927",
-  "candidate_commit": "00449ac",
-  "completed_at": "2026-03-12T23:42:45Z",
+  "candidate_commit": "5afccfe",
+  "completed_at": "2026-03-12T23:56:04Z",
   "confidence": "moderate",
   "contradicted_assumption": null,
   "contradiction_class": "aggression-vs-stability",
   "corroborated_by_experiment_ids": [
     "codex-transcendent-fn-mar12-1341:003",
-    "codex-transcendent-fn-mar12-1927:002"
+    "codex-transcendent-fn-mar12-1927:001"
   ],
   "corroborates_experiment_ids": [
     "codex-transcendent-fn-mar12-1341:003",
-    "codex-transcendent-fn-mar12-1927:002"
+    "codex-transcendent-fn-mar12-1927:001"
   ],
   "corroboration_count": 2,
-  "created_at": "2026-03-12T23:30:56Z",
+  "created_at": "2026-03-12T23:46:47Z",
   "default_tension_pair": {
     "anchor_experiment_id": "codex-transcendent-fn-mar12-0755:001",
     "opposed_axes": [],
     "opposing_experiment_id": "codex-transcendent-fn-mar12-1341:003",
     "opposition_score": 0.3,
     "relevance_score": 0.9,
-    "selection_reason": "Selected codex-transcendent-fn-mar12-1341:003 because it overlaps on aggression-vs-stability, capacity-vs-throughput, inductive-bias-vs-coverage, locality-vs-global-context, memory-vs-quality, novelty-vs-simplicity, optimization-speed-vs-stability, value-embeddings-vs-simplicity while pushing against the incumbent on an inferred opposing posture.",
+    "selection_reason": "Selected codex-transcendent-fn-mar12-1341:003 because it overlaps on aggression-vs-stability, capacity-vs-throughput, inductive-bias-vs-coverage, locality-vs-global-context, memory-vs-quality, novelty-vs-simplicity, optimization-speed-vs-stability, value-embeddings-vs-simplicity while pushing against the incumbent on an inferred opposing posture. It is corroborated by 1 related experiment.",
     "shared_axes": [
       "aggression-vs-stability",
       "capacity-vs-throughput",
@@ -49,23 +49,23 @@
       "optimization-speed-vs-stability",
       "value-embeddings-vs-simplicity"
     ],
-    "total_score": 0.675,
+    "total_score": 0.695,
     "transcendent_prediction": "Hold the incumbent strength from codex-transcendent-fn-mar12-0755:001 against the opposing evidence from codex-transcendent-fn-mar12-1341:003 on aggression-vs-stability, capacity-vs-throughput, inductive-bias-vs-coverage, locality-vs-global-context, memory-vs\u2026"
   },
-  "delta_vs_incumbent": 0.014288,
-  "delta_vs_parent": null,
+  "delta_vs_incumbent": 0.014095,
+  "delta_vs_parent": -0.000193,
   "evidence_strength": 0.75,
-  "experiment_id": "codex-transcendent-fn-mar12-1927:001",
+  "experiment_id": "codex-transcendent-fn-mar12-1927:002",
   "framing_diagnosis": null,
-  "incumbent_rank": 4,
+  "incumbent_rank": 3,
   "is_incumbent_candidate": true,
-  "iteration": 1,
-  "iteration_label": "001",
+  "iteration": 2,
+  "iteration_label": "002",
   "keep_discard_status": null,
   "knowledge_anchor_experiment_id": "codex-transcendent-fn-mar12-0755:001",
   "knowledge_opposing_experiment_id": "codex-transcendent-fn-mar12-1341:003",
-  "knowledge_ref": "knowledge_base/experiments/codex-transcendent-fn-mar12-1927/001.json",
-  "knowledge_selection_reason": "Selected codex-transcendent-fn-mar12-1341:003 because it overlaps on aggression-vs-stability, capacity-vs-throughput, inductive-bias-vs-coverage, locality-vs-global-context, memory-vs-quality, novelty-vs-simplicity, optimization-speed-vs-stability, value-embeddings-vs-simplicity while pushing against the incumbent on an inferred opposing posture.",
+  "knowledge_ref": "knowledge_base/experiments/codex-transcendent-fn-mar12-1927/002.json",
+  "knowledge_selection_reason": "Selected codex-transcendent-fn-mar12-1341:003 because it overlaps on aggression-vs-stability, capacity-vs-throughput, inductive-bias-vs-coverage, locality-vs-global-context, memory-vs-quality, novelty-vs-simplicity, optimization-speed-vs-stability, value-embeddings-vs-simplicity while pushing against the incumbent on an inferred opposing posture. It is corroborated by 1 related experiment.",
   "knowledge_transcendent_prediction": "Hold the incumbent strength from codex-transcendent-fn-mar12-0755:001 against the opposing evidence from codex-transcendent-fn-mar12-1341:003 on aggression-vs-stability, capacity-vs-throughput, inductive-bias-vs-coverage, locality-vs-global-context, memory-vs\u2026",
   "mechanism_hypothesis": "If the plain baseline survives but gives back a little quality, the most plausible repair is to turn some of the removed novelty budget into extra ordinary depth rather than restoring the full value-embedding mechanism.",
   "mechanism_tags": [
@@ -93,19 +93,19 @@
   ],
   "metrics": {
     "depth": "8",
-    "mfu_percent": "39.64",
+    "mfu_percent": "39.62",
     "num_params_M": "33.6",
     "num_steps": "949",
     "peak_vram_mb": "43900.2",
-    "total_seconds": "346.5",
+    "total_seconds": "325.2",
     "total_tokens_M": "497.5",
-    "training_seconds": "300.0",
-    "val_bpb": "1.010521"
+    "training_seconds": "300.2",
+    "val_bpb": "1.010328"
   },
   "move_type": "exploit",
   "opposes_experiment_ids": [],
   "outcome": null,
-  "parent_commit": "05931f3",
+  "parent_commit": "19b6e37",
   "polarity": {
     "aggression-vs-stability": "thesis",
     "capacity-vs-throughput": "thesis",
@@ -151,11 +151,11 @@
   "runner_mode": "runpod",
   "schema_version": 1,
   "session_id": "codex-transcendent-fn-mar12-1927",
-  "source_iteration_path": "experiment_logs/codex-transcendent-fn-mar12-1927/iterations/001",
+  "source_iteration_path": "experiment_logs/codex-transcendent-fn-mar12-1927/iterations/002",
   "status": "completed",
   "summary_text": null,
   "supports_experiment_ids": [],
-  "takeaway": "Completed run reached val_bpb 1.010521. Prediction context: Keeping the current plain 8-layer `SSSL` no-value-embedding baseline unchanged will likely worsen `val_bpb` slightly versus `0.996233` because the simpler stack should optimize a\u2026",
+  "takeaway": "Completed run reached val_bpb 1.010328. Prediction context: Keeping the current plain 8-layer `SSSL` no-value-embedding baseline unchanged will likely worsen `val_bpb` slightly versus `0.996233` because the simpler stack should optimize a\u2026",
   "tension_count": 4,
   "tensions": [
     {
@@ -200,5 +200,5 @@
     "thesis_ref": "capacity-vs-throughput:thesis"
   },
   "transcendent_role": "thesis",
-  "val_bpb": 1.010521
+  "val_bpb": 1.010328
 }

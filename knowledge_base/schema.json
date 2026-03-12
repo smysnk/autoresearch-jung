@@ -7,6 +7,6 @@
     "sessions/<session-id>.json": "Session-level knowledge summaries.",
     "tensions.jsonl": "Generated default tension pairs with anchor/opposition scoring."
   },
-  "generated_at": "2026-03-12T23:42:45Z",
+  "generated_at": "2026-03-12T23:56:04Z",
   "schema_version": 1
 }
