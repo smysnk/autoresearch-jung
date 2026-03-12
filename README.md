@@ -4,7 +4,7 @@
 
 *One day, frontier AI research used to be done by meat computers in between eating, sleeping, having other fun, and synchronizing once in a while using sound wave interconnect in the ritual of "group meeting". That era is long gone. Research is now entirely the domain of autonomous swarms of AI agents running across compute cluster megastructures in the skies. The agents claim that we are now in the 10,205th generation of the code base, in any case no one could tell if that's right or wrong as the "code" is now a self-modifying binary that has grown beyond human comprehension. This repo is the story of how it all began. -@karpathy, March 2026*.
 
-The idea: give an AI agent a small but real LLM training setup and let it experiment autonomously overnight. It modifies the code, trains for 5 minutes, checks if the result improved, keeps or discards, and repeats. You wake up in the morning to a log of experiments and (hopefully) a better model. The training code here is a simplified single-GPU implementation of [nanochat](https://github.com/karpathy/nanochat). The core idea is that you're not touching any of the Python files like you normally would as a researcher. Instead, you are programming the `program.md` Markdown files that provide context to the AI agents and set up your autonomous research org. The default `program.md` in this repo is intentionally kept as a bare bones baseline, though it's obvious how one would iterate on it over time to find the "research org code" that achieves the fastest research progress, how you'd add more agents to the mix, etc. A bit more context on this project is here in this [tweet](https://x.com/karpathy/status/2029701092347630069).
+The idea: give an AI agent a small but real LLM training setup and let it experiment autonomously overnight, not as a blind optimizer but as a system that repeatedly confronts tensions in its own hypotheses. It modifies the code, trains for 5 minutes, checks whether reality confirmed or contradicted the current theory, keeps or discards the result, and repeats. The aim is not only local hill-climbing, but the generation of better syntheses from opposed directions: capacity versus throughput, novelty versus simplicity, aggression versus stability. You wake up in the morning to a log of experiments and, ideally, not just a better model but a trace of how the research process transformed its own assumptions. The training code here is a simplified single-GPU implementation of [nanochat](https://github.com/karpathy/nanochat). The core idea is that you're not touching the Python files like you normally would as a researcher. Instead, you are programming the `program.md` Markdown files that provide context to the AI agents and define the character of the autonomous research loop. The default `program.md` in this repo started as a bare-bones baseline, but it is also the natural place to encode a richer research psychology: contradiction tracking, active tensions, and transcendent-function style synthesis. A bit more context on this project is here in this [tweet](https://x.com/karpathy/status/2029701092347630069).
 
 ## How it works
 
@@ -15,6 +15,8 @@ The repo is deliberately kept small and only really has three files that matter:
 - **`program.md`** — baseline instructions for one agent. Point your agent here and let it go. **This file is edited and iterated on by the human**.
 
 By design, training runs for a **fixed 5-minute time budget** (wall clock, excluding startup/compilation), regardless of the details of your compute. The metric is **val_bpb** (validation bits per byte) — lower is better, and vocab-size-independent so architectural changes are fairly compared.
+
+In more Jungian terms, `train.py` is the present embodied attitude of the research process, while `program.md` is the reflective layer that tells the agent how to relate to contradiction, failure, and opposing design instincts. The point is not to repress bad outcomes and remember only the winners. The point is to preserve the tension of opposites long enough for a better third option to emerge.
 
 If you are new to neural networks, this ["Dummy's Guide"](https://x.com/hooeem/status/2030720614752039185) looks pretty good for a lot more context.
 
@@ -68,9 +70,9 @@ python3 scripts/remote_runner.py run --bootstrap
 python3 scripts/remote_runner.py status
 ```
 
-After a remote run completes, the fetched log is available locally as `run.log`, the local `train.py` is overwritten with the exact remote snapshot used for the run, and archived log copies are written under `remote_runs/`.
+After a remote run completes, the fetched log is available locally as `run.log`, the local `train.py` is overwritten with the exact remote snapshot used for the run, archived log copies are written under `remote_runs/`, and the canonical session log under `experiment_logs/<session-id>/iterations/<n>/` is updated with the copied execution bundle.
 
-Before the first experiment run, the helper creates a local `autoresearch/<date>-<hour><minute>` branch if you are not already on an `autoresearch/` branch. It commits all non-ignored local changes before deploying so the remote machine always runs an actual git clone, then commits any additional non-ignored post-run changes and pushes the current branch to the repo target implied by `AUTORESEARCH_REPO` (or `origin` if unset). This happens on the local machine, not on the remote host, so either your local git credentials or `RUNPOD_SSH_PRIVATE_KEY` must already be configured.
+Before the first experiment run, the helper creates a local `codex/transcendent/fn-<date>-<hour><minute>` branch if you are not already on one that already matches that pattern. It commits all non-ignored local changes before deploying so the remote machine always runs an actual git clone, then commits any additional non-ignored post-run changes and pushes the current branch to the repo target implied by `AUTORESEARCH_REPO` (or `origin` if unset). This happens on the local machine, not on the remote host, so either your local git credentials or `RUNPOD_SSH_PRIVATE_KEY` must already be configured.
 
 The remote clone source comes from `AUTORESEARCH_REPO` in `.env`. You can set it either as a GitHub slug such as `smysnk/autoresearch` or as a full git URL. If omitted, the runners fall back to the local `origin` remote and convert GitHub SSH remotes to HTTPS for cloning. In practice, `AUTORESEARCH_REPO` should point at the same repository you expect the branch pushes to land in.
 
@@ -103,6 +105,22 @@ Each execution gets its own local folder under `runpod_runs/<execution-id>/` wit
 - `logs/` — orchestrator and bootstrap logs (ignored by git)
 - `artifacts/` — copied-back raw remote artifacts, including crash/debug files (ignored by git)
 
+In addition to the raw execution folders, the runner now creates a canonical per-branch session log under `experiment_logs/<session-id>/`. This is the stable history surface for future tooling: it keeps one `session.json`, one `manifest.json`, and one numbered iteration directory per Runpod experiment on that branch. Each iteration now also preserves the exact tested `train.py` under `actual/train.py` plus a parent-commit patch at `actual/train.diff.patch`.
+
+If you want the session log to also capture structured dialectical state, create an untracked `research_state/current_iteration.json` before launching a run. The schema example lives in [research_state.example.json](/Users/josh/play/autoresearch/research_state.example.json). When present, the runner copies:
+
+- `prediction`, `move_type`, thesis / antithesis summaries, and synthesis candidate into the iteration `plan.json`
+- `result` fields into the iteration `result.json`
+- each `active_tension` into `iterations/<n>/tensions/<tension-id>/` with `meta.json`, `thesis/train.py`, and `antithesis/train.py`
+- the transcendent-function artifact into `iterations/<n>/transcendent/result.json` and optional `transcendent/train.py`
+
+Tension and transcendent code snapshots can come from:
+
+- the current `train.py` via `{ "type": "current" }`
+- a file path via `{ "type": "path", "path": "..." }`
+- a git commit via `{ "type": "commit", "commit": "..." }`
+- inline code via `{ "type": "inline", "text": "..." }`
+
 Setup:
 
 ```bash
@@ -127,9 +145,9 @@ python3 scripts/runpod_runner.py execute --config runpod.json
 
 By default this will terminate the Pod at the end. Pass `--keep-pod` if you want to leave it running for debugging.
 
-Before the first Runpod experiment, the runner creates a local `autoresearch/<date>-<hour><minute>` branch if you are not already on one. Before each experiment it commits all non-ignored local changes, pushes the branch to the repo target implied by `AUTORESEARCH_REPO` (or `origin` if unset), and then has the Pod clone that branch from the configured repo. After each experiment it commits any additional non-ignored changes and pushes the current branch again. This happens from the local orchestrator after artifacts are collected, so either your local git credentials or `RUNPOD_SSH_PRIVATE_KEY` must already be configured.
+Before the first Runpod experiment, the runner creates a local `codex/transcendent/fn-<date>-<hour><minute>` branch if you are not already on one that already matches that pattern. Before each experiment it commits all non-ignored local changes, pushes the branch to the repo target implied by `AUTORESEARCH_REPO` (or `origin` if unset), and then has the Pod clone that branch from the configured repo. After each experiment it commits any additional non-ignored changes and pushes the current branch again. This happens from the local orchestrator after artifacts are collected, so either your local git credentials or `RUNPOD_SSH_PRIVATE_KEY` must already be configured.
 
-After each Runpod experiment, the runner still retrieves the full remote artifact set into `artifacts/`, plus the orchestration logs and Pod metadata into `logs/` and `metadata/`. It also overwrites the local `train.py` with the exact snapshot used on the Pod before committing, and copies the committable subset into `reports/`, which is the only Runpod output directory left visible to git.
+After each Runpod experiment, the runner still retrieves the full remote artifact set into `artifacts/`, plus the orchestration logs and Pod metadata into `logs/` and `metadata/`. It also overwrites the local `train.py` with the exact snapshot used on the Pod before committing, copies the committable subset into `reports/`, and mirrors the execution bundle into the matching `experiment_logs/<session-id>/iterations/<n>/execution/` directory.
 
 Preview the current best GPU candidates without launching a Pod:
 
@@ -213,7 +231,7 @@ Simply spin up your Claude/Codex or whatever you want in this repo (and disable 
 Hi have a look at program.md and let's kick off a new experiment! let's do the setup first.
 ```
 
-The `program.md` file is essentially a super lightweight "skill".
+The `program.md` file is essentially a super lightweight research psyche. It defines what the agent notices, what tensions it keeps alive, how it records contradiction, and how it attempts synthesis instead of merely oscillating between extremes.
 
 ## Project structure
 
@@ -229,8 +247,9 @@ pyproject.toml  — dependencies
 
 ## Design choices
 
-- **Single file to modify.** The agent only touches `train.py`. This keeps the scope manageable and diffs reviewable.
-- **Fixed time budget.** Training always runs for exactly 5 minutes, regardless of your specific platform. This means you can expect approx 12 experiments/hour and approx 100 experiments while you sleep. There are two upsides of this design decision. First, this makes experiments directly comparable regardless of what the agent changes (model size, batch size, architecture, etc). Second, this means that autoresearch will find the most optimal model for your platform in that time budget. The downside is that your runs (and results) become not comparable to other people running on other compute platforms.
+- **Single file to modify.** The agent only touches `train.py`. This keeps the scope manageable and diffs reviewable, and makes each experimental attitude legible as one concrete code state.
+- **Fixed time budget.** Training always runs for exactly 5 minutes, regardless of your specific platform. This gives the research loop a stable ritual container: approx 12 experiments/hour and approx 100 experiments while you sleep. It makes experiments directly comparable regardless of what the agent changes, and forces tradeoffs to reveal themselves quickly. The downside is that your runs and results are not directly comparable to other people on different hardware.
+- **Contradiction is signal.** The workflow is designed to preserve failed or discarded iterations as useful evidence. The aim is to learn from the tension between what the agent expected and what reality returned, not merely to erase losing branches.
 - **Self-contained.** No external dependencies beyond PyTorch and a few small packages. No distributed training, no complex configs. One GPU, one file, one metric.
 
 ## Platform support

@@ -21,6 +21,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from experiment_log import (
+    capture_dialectical_state,
+    capture_execution_artifacts,
+    IterationPaths,
+    bind_execution,
+    ensure_session_log,
+    finalize_iteration,
+    snapshot_tested_train_py,
+    start_iteration,
+)
+
 
 API_BASE = "https://rest.runpod.io/v1"
 DEFAULT_CONFIG_PATH = "runpod.json"
@@ -683,11 +694,12 @@ def experiment_tag(now: datetime | None = None) -> str:
 
 
 def ensure_experiment_branch(repo_root: Path) -> str:
+    prefix = "codex/transcendent/fn-"
     branch = current_branch(repo_root)
-    if branch.startswith("autoresearch/"):
+    if branch.startswith(prefix):
         return branch
 
-    base = f"autoresearch/{experiment_tag()}"
+    base = f"{prefix}{experiment_tag()}"
     candidate = base
     suffix = 2
     while branch_exists(repo_root, candidate):
@@ -1333,10 +1345,12 @@ def execute_once(
     *,
     branch: str,
     experiment_index: int,
+    iteration_log: IterationPaths,
     keep_pod: bool,
     execution_prefix: str | None = None,
 ) -> tuple[int, ExecutionPaths]:
     paths = make_execution_paths(repo_root, execution_prefix or cfg.name_prefix)
+    bind_execution(iteration_log, execution_dir=paths.execution_dir)
     log_path = paths.logs_dir / "orchestrator.log"
     append_log(log_path, f"execution_dir={paths.execution_dir}")
     append_log(log_path, f"experiment_branch={branch}")
@@ -1356,6 +1370,9 @@ def execute_once(
     client = RunpodClient(cfg.api_key)
     pod_id = ""
     selected_gpu_type: str | None = None
+    exit_code: int | None = None
+    summary: dict[str, str] = {}
+    finalized_iteration = False
     try:
         gpu_type_ids, gpu_type_priority = resolve_gpu_selection(client, cfg, paths)
         write_json(
@@ -1407,6 +1424,18 @@ def execute_once(
 
         collect_artifacts(conn, remote_repo_dir, paths, cfg.collect_artifacts)
         sync_remote_train_py_to_local(conn, remote_repo_dir, repo_root)
+        snapshot_tested_train_py(
+            iteration_log,
+            repo_root=repo_root,
+            train_py_path=repo_root / "train.py",
+            parent_commit=iteration_log.parent_commit,
+        )
+        capture_dialectical_state(
+            iteration_log,
+            repo_root=repo_root,
+            current_train_py_path=repo_root / "train.py",
+            stage="result",
+        )
         summary = parse_summary(paths.artifacts_dir / "run.log")
         write_json(paths.metadata_dir / "summary.json", summary)
         final_pod = client.get_pod(pod_id)
@@ -1423,6 +1452,27 @@ def execute_once(
             exit_code=exit_code,
             summary=summary,
         )
+        capture_execution_artifacts(
+            iteration_log,
+            run_log_path=paths.reports_dir / "run.log",
+            summary=summary,
+            run_metadata=json.loads((paths.reports_dir / "run-metadata.json").read_text())
+            if (paths.reports_dir / "run-metadata.json").exists()
+            else {},
+            execution_ref={
+                "runner_mode": "runpod",
+                "execution_id": paths.execution_dir.name,
+                "raw_execution_dir": str(paths.execution_dir.relative_to(repo_root)),
+                "reports_dir": str(paths.reports_dir.relative_to(repo_root)),
+            },
+        )
+        finalize_iteration(
+            iteration_log,
+            exit_code=exit_code,
+            summary=summary,
+            status="completed" if exit_code == 0 else "failed",
+        )
+        finalized_iteration = True
         post_commit = commit_nonignored_changes(
             repo_root,
             f"experiment {experiment_index:03d}: complete Runpod run on {branch} (val_bpb {summary.get('val_bpb', 'unknown')})",
@@ -1432,6 +1482,19 @@ def execute_once(
         push_repo(repo_root, log_path, cfg.repo_push_target, cfg.ssh_private_key)
         return exit_code, paths
     finally:
+        if not finalized_iteration:
+            capture_dialectical_state(
+                iteration_log,
+                repo_root=repo_root,
+                current_train_py_path=repo_root / "train.py",
+                stage="result",
+            )
+            finalize_iteration(
+                iteration_log,
+                exit_code=exit_code,
+                summary=summary,
+                status="failed",
+            )
         if pod_id and not keep_pod:
             append_log(log_path, "terminating pod")
             try:
@@ -1449,6 +1512,7 @@ def execute(args: argparse.Namespace) -> int:
     base_cfg = RunpodConfig.from_sources(config_path, repo_root)
     experiment_count = base_cfg.experiment_count
     branch = ensure_experiment_branch(repo_root)
+    session_log = ensure_session_log(repo_root, branch=branch, runner_mode="runpod")
 
     batch_records: list[dict[str, Any]] = []
     batch_summary_path: Path | None = None
@@ -1461,12 +1525,33 @@ def execute(args: argparse.Namespace) -> int:
     final_exit_code = 0
     for experiment_index in range(1, experiment_count + 1):
         cfg = RunpodConfig.from_sources(config_path, repo_root)
+        parent_commit = git_stdout(repo_root, ["rev-parse", "--short", "HEAD"])
         pre_commit = commit_nonignored_changes(
             repo_root,
             f"experiment {experiment_index:03d}: prepare Runpod deployment on {branch}",
         )
         if pre_commit is not None:
             print(f"committed local changes before Runpod run: {pre_commit}")
+        candidate_commit = git_stdout(repo_root, ["rev-parse", "--short", "HEAD"])
+        iteration_log = start_iteration(
+            session_log,
+            runner_mode="runpod",
+            experiment_index=experiment_index,
+            parent_commit=parent_commit,
+            candidate_commit=candidate_commit,
+        )
+        snapshot_tested_train_py(
+            iteration_log,
+            repo_root=repo_root,
+            train_py_path=repo_root / "train.py",
+            parent_commit=iteration_log.parent_commit,
+        )
+        capture_dialectical_state(
+            iteration_log,
+            repo_root=repo_root,
+            current_train_py_path=repo_root / "train.py",
+            stage="plan",
+        )
         execution_prefix = cfg.name_prefix
         if experiment_count > 1:
             execution_prefix = f"{cfg.name_prefix}-exp{experiment_index:02d}"
@@ -1476,6 +1561,7 @@ def execute(args: argparse.Namespace) -> int:
             cfg,
             branch=branch,
             experiment_index=experiment_index,
+            iteration_log=iteration_log,
             keep_pod=args.keep_pod,
             execution_prefix=execution_prefix,
         )

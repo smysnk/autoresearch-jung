@@ -23,6 +23,7 @@ dev/
 /results.tsv
 /research_journal.tsv
 /run.log
+research_state/
 remote_runs/
 # Keep only curated Runpod reports under runpod_runs/*/reports/
 runpod_runs/*/artifacts/

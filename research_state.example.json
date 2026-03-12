@@ -1,0 +1,53 @@
+{
+  "prediction": "Changing <X> will improve/worsen <Y> because <mechanism>.",
+  "move_type": "synthesize",
+  "why_now": "Why this iteration is being run now.",
+  "thesis": "Short description of the strongest current thesis.",
+  "antithesis": "Short description of the strongest competing view.",
+  "synthesis_candidate": "Short description of the proposed synthesis experiment.",
+  "active_tensions": [
+    {
+      "id": "depth-vs-throughput",
+      "label": "Depth vs throughput",
+      "kind": "capacity-vs-throughput",
+      "why_active": "Both deeper and shallower variants have shown partial wins.",
+      "favored_side": "thesis",
+      "thesis": {
+        "summary": "Favor deeper models for quality.",
+        "source": {
+          "type": "commit",
+          "commit": "HEAD"
+        }
+      },
+      "antithesis": {
+        "summary": "Favor higher throughput with a simpler stack.",
+        "source": {
+          "type": "path",
+          "path": "research_state/tensions/depth-vs-throughput/antithesis.train.py"
+        }
+      }
+    }
+  ],
+  "transcendent": {
+    "source_tension_ids": [
+      "depth-vs-throughput"
+    ],
+    "thesis_ref": "depth-vs-throughput:thesis",
+    "antithesis_ref": "depth-vs-throughput:antithesis",
+    "emergent_thought": "Reduce depth slightly and reallocate saved compute elsewhere.",
+    "concrete_change": "Cut one layer and increase FFN width.",
+    "tested_in_iteration": true,
+    "result_status": "proposed",
+    "train_py_source": {
+      "type": "current"
+    }
+  },
+  "result": {
+    "outcome": "mixed",
+    "contradicted_assumption": "Extra depth was assumed to dominate throughput costs.",
+    "keep_discard_status": "discard",
+    "framing_diagnosis": "The comparison may be confounded by both depth and optimizer changes.",
+    "next_move_type": "synthesize",
+    "summary_text": "The synthesis was promising conceptually but did not win in this exact framing."
+  }
+}

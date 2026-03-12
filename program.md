@@ -6,8 +6,8 @@ This is an experiment to have the LLM do its own research.
 
 To set up a new experiment, work with the user to:
 
-1. **Agree on a run tag**: propose a tag based on today's date and time (e.g. `mar5-1430`). The branch `autoresearch/<tag>` must not already exist — this is a fresh run.
-2. **Create the branch**: `git checkout -b autoresearch/<tag>` from current master.
+1. **Agree on a run tag**: propose a tag based on today's date and time (e.g. `mar5-1430`). The branch `codex/transcendent/fn-<tag>` must not already exist — this is a fresh run.
+2. **Create the branch**: `git checkout -b codex/transcendent/fn-<tag>` from current master.
 3. **Read the in-scope files**: The repo is small. Read these files for full context:
    - `README.md` — repository context.
    - `prepare.py` — fixed constants, data prep, tokenizer, dataloader, evaluation. Do not modify.
@@ -17,8 +17,9 @@ To set up a new experiment, work with the user to:
    - remote execution: Confirm the SSH target is reachable. `python3 scripts/remote_runner.py setup` will prepare the remote cache if it is missing.
 5. **Initialize results.tsv**: Create `results.tsv` with just the header row. The baseline will be recorded after the first run.
 6. **Initialize research_journal.tsv**: Create `research_journal.tsv` with just the header row. This is an untracked scratchpad for predictions, contradictions, and synthesis notes.
-7. **Optional remote bootstrap**: If the experiments should run on a remote CUDA machine, run `python3 scripts/remote_runner.py setup`. This pushes the current experiment branch and has the remote host clone it from the configured repo, bootstraps `uv`, prepares data if needed, and keeps the execution environment there. The fetched `run.log` will still appear locally after each run, and the exact remote `train.py` snapshot will be copied back over the local `train.py` before the post-run commit.
-8. **Confirm and go**: Confirm setup looks good.
+7. **Initialize structured iteration state**: Keep an untracked `research_state/current_iteration.json` for the current candidate run. Use `research_state.example.json` as the schema reference. This is the staging file for prediction, active tensions, thesis/antithesis sources, transcendent-function state, and post-run interpretation.
+8. **Optional remote bootstrap**: If the experiments should run on a remote CUDA machine, run `python3 scripts/remote_runner.py setup`. This pushes the current experiment branch and has the remote host clone it from the configured repo, bootstraps `uv`, prepares data if needed, and keeps the execution environment there. The fetched `run.log` will still appear locally after each run, the exact remote `train.py` snapshot will be copied back over the local `train.py` before the post-run commit, and the structured session log under `experiment_logs/<session-id>/` will be updated from `research_state/current_iteration.json`.
+9. **Confirm and go**: Confirm setup looks good.
 
 Once you get confirmation, kick off the experimentation.
 
@@ -26,10 +27,11 @@ Once you get confirmation, kick off the experimentation.
 
 Each experiment runs on a single GPU. The training script runs for a **fixed time budget of 5 minutes** (wall clock training time, excluding startup/compilation). You launch it simply as: `uv run train.py`.
 
-If you are using the remote runner, launch experiments with `python3 scripts/remote_runner.py run --bootstrap` instead. It pushes your local experiment branch, has the remote machine clone that branch from the configured repo, executes `train.py` there, copies `run.log` back to the local repo, and then refreshes the local `train.py` from the exact remote snapshot used for the run.
+If you are using the remote runner, launch experiments with `python3 scripts/remote_runner.py run --bootstrap` instead. It pushes your local experiment branch, has the remote machine clone that branch from the configured repo, executes `train.py` there, copies `run.log` back to the local repo, refreshes the local `train.py` from the exact remote snapshot used for the run, and materializes the staged dialectical state into `experiment_logs/<session-id>/iterations/<n>/`.
 
 **What you CAN do:**
-- Modify `train.py` — this is the only file you edit. Everything is fair game: model architecture, optimizer, hyperparameters, training loop, batch size, model size, etc.
+- Modify `train.py` — this is the only model/training code file you edit. Everything is fair game: model architecture, optimizer, hyperparameters, training loop, batch size, model size, etc.
+- Update structured logging inputs under `research_state/` for the current iteration. These are operational metadata, not additional training code.
 
 **What you CANNOT do:**
 - Modify `prepare.py`. It is read-only. It contains the fixed evaluation, data loading, tokenizer, and training constants (time budget, sequence length, etc).
@@ -133,6 +135,45 @@ Next move: exploit / negate / synthesize
 
 Your post-run note should be short and concrete. Its purpose is to sharpen the next experiment, not to produce an essay.
 
+## Structured experiment log
+
+The canonical history for a research session lives under:
+
+```text
+experiment_logs/<session-id>/
+```
+
+Where `<session-id>` is the current branch slug, e.g. `codex-transcendent-fn-mar5-1430`.
+
+Before every run, update `research_state/current_iteration.json` so it contains the current:
+
+- prediction
+- move type
+- why this run is happening now
+- thesis / antithesis summaries
+- active tensions
+- transcendent-function candidate
+
+Each active tension must be represented as a pair of code states, not only prose:
+
+- thesis `train.py`
+- antithesis `train.py`
+
+Use the source forms shown in `research_state.example.json` (`current`, `path`, `commit`, or `inline`) so the runner can materialize those poles into the structured session log.
+
+After every run, update the `result` section in `research_state/current_iteration.json` with:
+
+- outcome
+- contradicted assumption
+- keep/discard/crash status
+- framing diagnosis
+- next move type
+- short summary text
+
+Also record the transcendent-function result as a first-class object. If a synthesis emerged, say what thesis and antithesis it came from, what the emergent thought was, what concrete `train.py` change it implied, and whether that synthesis was kept or discarded.
+
+Do not reset, discard, or advance the branch until this structured post-run state has been updated. The point is to preserve every iteration even when the branch later rewinds.
+
 ## Output format
 
 Once the script finishes it prints a summary like this:
@@ -182,37 +223,40 @@ c3d4e5f	1.005000	44.0	discard	switch to GeLU activation
 d4e5f6g	0.000000	0.0	crash	double model width (OOM)
 ```
 
-Also keep an untracked `research_journal.tsv` scratchpad for dialectical notes. Use this header:
+Also keep an untracked `research_journal.tsv` scratchpad for quick dialectical notes. Use this header:
 
 ```
 experiment	parent_commit	prediction	outcome	contradicted_assumption	tension	move_type	synthesis_note
 ```
 
-Keep `results.tsv` compact and canonical. Put the reasoning trace in `research_journal.tsv`. Do not commit either file.
+Keep `results.tsv` compact and canonical for the summary table. Use `research_journal.tsv` only as a lightweight scratchpad. The machine-readable source of truth for a future visualizer is the structured session log under `experiment_logs/<session-id>/`. Do not commit `results.tsv` or `research_journal.tsv`.
 
 ## The experiment loop
 
-The experiment runs on a dedicated branch (e.g. `autoresearch/mar5-1430` or `autoresearch/mar5-1430-gpu0`).
+The experiment runs on a dedicated branch (e.g. `codex/transcendent/fn-mar5-1430` or `codex/transcendent/fn-mar5-1430-gpu0`).
 
 LOOP FOREVER:
 
 1. Look at the git state: the current branch/commit we're on
 2. Maintain 2-4 active tensions. Every 3 experiments, explicitly write down the current thesis, antithesis, and one synthesis candidate before choosing the next change.
 3. Choose a move type: `exploit`, `negate`, or `synthesize`.
-4. Write a one-sentence prediction in `research_journal.tsv`.
-5. Tune `train.py` with an experimental idea by directly hacking the code.
-6. git commit
-7. Run the experiment:
+4. Update `research_state/current_iteration.json` with the prediction, move type, thesis, antithesis, synthesis candidate, and result placeholder for this iteration.
+5. If an active tension needs explicit code poles, update the referenced thesis / antithesis `train.py` snapshots under `research_state/` before you run.
+6. Optionally mirror the prediction and tension in `research_journal.tsv` for quick scanning.
+7. Tune `train.py` with an experimental idea by directly hacking the code.
+8. git commit
+9. Run the experiment:
    - local CUDA: `uv run train.py > run.log 2>&1`
    - remote CUDA: `python3 scripts/remote_runner.py run --bootstrap`
    In both cases, make sure the current run leaves a local `run.log` behind. Do NOT use tee or let output flood your context.
-8. Read out the results: `grep "^val_bpb:\|^peak_vram_mb:" run.log`
-9. If the grep output is empty, the run crashed. Run `tail -n 50 run.log` to read the Python stack trace and attempt a fix. If you can't get things to work after more than a few attempts, give up.
-10. Record the outcome in `research_journal.tsv`: confirmed / contradicted / mixed, the contradicted assumption if any, the active tension, and the next move type.
-11. Record the results in `results.tsv` (NOTE: do not commit `results.tsv` or `research_journal.tsv`; leave both untracked by git)
-12. If `val_bpb` improved (lower), you "advance" the branch, keeping the git commit
-13. If `val_bpb` is equal or worse, usually git reset back to where you started, but only after extracting the contradiction and deciding whether the failure was in the idea or in the framing
-14. If a flat or worse run reveals a useful contradiction, use it immediately to drive a negation or synthesis experiment instead of forgetting it
+10. Read out the results: `grep "^val_bpb:\|^peak_vram_mb:" run.log`
+11. If the grep output is empty, the run crashed. Run `tail -n 50 run.log` to read the Python stack trace and attempt a fix. If you can't get things to work after more than a few attempts, give up.
+12. Before any keep/discard decision, update the `result` and `transcendent` sections in `research_state/current_iteration.json` so the structured log preserves what happened in this iteration.
+13. Record the outcome in `research_journal.tsv`: confirmed / contradicted / mixed, the contradicted assumption if any, the active tension, and the next move type.
+14. Record the results in `results.tsv` (NOTE: do not commit `results.tsv` or `research_journal.tsv`; leave both untracked by git)
+15. If `val_bpb` improved (lower), you "advance" the branch, keeping the git commit
+16. If `val_bpb` is equal or worse, usually git reset back to where you started, but only after the structured log has been updated and you have decided whether the failure was in the idea or in the framing
+17. If a flat or worse run reveals a useful contradiction, use it immediately to drive a negation or synthesis experiment instead of forgetting it
 
 The idea is that you are a completely autonomous researcher trying things out. If they work, keep. If they don't, discard. And you're advancing the branch so that you can iterate. If you feel like you're getting stuck in some way, you can rewind but you should probably do this very very sparingly (if ever).
 

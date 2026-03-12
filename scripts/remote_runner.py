@@ -15,6 +15,16 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+from experiment_log import (
+    bind_execution,
+    capture_dialectical_state,
+    capture_execution_artifacts,
+    ensure_session_log,
+    finalize_iteration,
+    snapshot_tested_train_py,
+    start_iteration,
+)
+
 
 DEFAULT_ENV_PATH = ".env"
 REMOTE_HOST_ENV = "AUTORESEARCH_REMOTE_HOST"
@@ -214,11 +224,12 @@ def experiment_tag(now: datetime | None = None) -> str:
 
 
 def ensure_experiment_branch(repo_root: Path) -> str:
+    prefix = "codex/transcendent/fn-"
     branch = current_branch(repo_root)
-    if branch.startswith("autoresearch/"):
+    if branch.startswith(prefix):
         return branch
 
-    base = f"autoresearch/{experiment_tag()}"
+    base = f"{prefix}{experiment_tag()}"
     candidate = base
     suffix = 2
     while branch_exists(repo_root, candidate):
@@ -412,12 +423,34 @@ def setup_command(cfg: RemoteConfig, args: argparse.Namespace) -> int:
 
 def run_command(cfg: RemoteConfig, args: argparse.Namespace) -> int:
     branch = ensure_experiment_branch(cfg.repo_root)
+    session_log = ensure_session_log(cfg.repo_root, branch=branch, runner_mode="remote")
+    parent_commit = git_stdout(cfg.repo_root, ["rev-parse", "--short", "HEAD"])
     pre_commit = commit_nonignored_changes(
         cfg.repo_root,
         f"experiment: prepare remote run on {branch}",
     )
     if pre_commit is not None:
         print(f"committed local changes before remote run: {pre_commit}")
+    candidate_commit = git_stdout(cfg.repo_root, ["rev-parse", "--short", "HEAD"])
+    iteration_log = start_iteration(
+        session_log,
+        runner_mode="remote",
+        experiment_index=None,
+        parent_commit=parent_commit,
+        candidate_commit=candidate_commit,
+    )
+    snapshot_tested_train_py(
+        iteration_log,
+        repo_root=cfg.repo_root,
+        train_py_path=cfg.local_train_py,
+        parent_commit=iteration_log.parent_commit,
+    )
+    capture_dialectical_state(
+        iteration_log,
+        repo_root=cfg.repo_root,
+        current_train_py_path=cfg.local_train_py,
+        stage="plan",
+    )
     push_repo(cfg.repo_root, cfg.repo_push_target, cfg.ssh_private_key_path)
     if not args.skip_sync:
         deploy_clone(cfg, branch)
@@ -446,9 +479,48 @@ export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 """
     result = run_remote(cfg, script, check=False)
     archive_path = fetch_run_log(cfg)
+    bind_execution(iteration_log, execution_dir=archive_path)
     sync_remote_train_py(cfg)
+    snapshot_tested_train_py(
+        iteration_log,
+        repo_root=cfg.repo_root,
+        train_py_path=cfg.local_train_py,
+        parent_commit=iteration_log.parent_commit,
+    )
+    capture_dialectical_state(
+        iteration_log,
+        repo_root=cfg.repo_root,
+        current_train_py_path=cfg.local_train_py,
+        stage="result",
+    )
     summary = parse_summary(cfg.local_run_log.read_text())
+    capture_execution_artifacts(
+        iteration_log,
+        run_log_path=cfg.local_run_log,
+        summary=summary,
+        run_metadata={
+            "runner_mode": "remote",
+            "branch": branch,
+            "host": cfg.host,
+            "remote_dir": cfg.remote_dir,
+            "archive_log": str(archive_path.relative_to(cfg.repo_root)),
+            "exit_code": result.returncode,
+            "metrics": summary,
+        },
+        execution_ref={
+            "runner_mode": "remote",
+            "archive_log": str(archive_path.relative_to(cfg.repo_root)),
+            "host": cfg.host,
+            "remote_dir": cfg.remote_dir,
+        },
+    )
     if summary:
+        finalize_iteration(
+            iteration_log,
+            exit_code=result.returncode,
+            summary=summary,
+            status="completed",
+        )
         print_summary(summary)
         print(f"archive_log: {archive_path}")
         post_commit = commit_nonignored_changes(
@@ -465,6 +537,12 @@ export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
             )
         return 0
 
+    finalize_iteration(
+        iteration_log,
+        exit_code=result.returncode,
+        summary=summary,
+        status="failed",
+    )
     post_commit = commit_nonignored_changes(
         cfg.repo_root,
         f"experiment: complete remote run on {branch} (crash)",
