@@ -1,8 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 
 import { formatDateTime, formatMemoryGb, formatMetric, titleCase, truncateText } from "@/lib/formatters";
 import type { IterationNode, SessionGraph } from "@/lib/types";
@@ -14,20 +12,8 @@ type SessionGalleryProps = {
 type SessionStateKind = "live" | "reconciled" | "historical" | "shadow";
 
 export function SessionGallery({ sessions }: SessionGalleryProps) {
-  const router = useRouter();
   const canonicalCount = sessions.filter((session) => session.source === "experiment_logs").length;
   const fallbackCount = sessions.filter((session) => session.source === "runpod").length;
-  const hasLiveSession = sessions.some((session) => session.live?.isActive);
-
-  useEffect(() => {
-    if (!hasLiveSession) {
-      return;
-    }
-    const handle = window.setInterval(() => {
-      router.refresh();
-    }, 5000);
-    return () => window.clearInterval(handle);
-  }, [hasLiveSession, router]);
 
   return (
     <main className="page-shell">

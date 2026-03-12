@@ -282,7 +282,6 @@ class RunpodConfig:
     min_ram_per_gpu_gb: int | None = None
     min_vcpu_per_gpu: int | None = None
     ports: list[str] = field(default_factory=lambda: ["22/tcp"])
-    relay_port: int = 8765
     ssh_user: str = "root"
     remote_base_dir: str = "/root/autoresearch"
     prepare_num_shards: int = 10
@@ -341,7 +340,6 @@ class RunpodConfig:
             min_ram_per_gpu_gb=int(data["min_ram_per_gpu_gb"]) if data.get("min_ram_per_gpu_gb") is not None else None,
             min_vcpu_per_gpu=int(data["min_vcpu_per_gpu"]) if data.get("min_vcpu_per_gpu") is not None else None,
             ports=list(data.get("ports", ["22/tcp"])),
-            relay_port=int(data.get("relay_port", 8765)),
             ssh_user=data.get("ssh_user", "root"),
             remote_base_dir=data.get("remote_base_dir", "/root/autoresearch"),
             prepare_num_shards=int(data.get("prepare_num_shards", 10)),
@@ -671,7 +669,6 @@ def build_live_state_payload(
     run_log_path: Path | None,
     telemetry_events_path: Path | None = None,
     relay_state_path: Path | None = None,
-    relay_ws_url: str | None = None,
     prepare_manifest: dict[str, Any] | None = None,
     reflect_manifest: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -691,20 +688,10 @@ def build_live_state_payload(
         "run_log_path": str(run_log_path) if run_log_path is not None else None,
         "telemetry_events_path": str(telemetry_events_path) if telemetry_events_path is not None else None,
         "relay_state_path": str(relay_state_path) if relay_state_path is not None else None,
-        "relay_ws_url": relay_ws_url,
         "prepare": prepare_manifest,
         "reflect": reflect_manifest,
         "updated_at": iso_now(),
     }
-
-
-def effective_ports(cfg: RunpodConfig) -> list[str]:
-    ports = list(cfg.ports)
-    relay_port_spec = f"{cfg.relay_port}/tcp"
-    if relay_port_spec not in ports:
-        ports.append(relay_port_spec)
-    return ports
-
 
 def effective_artifacts(artifacts: list[str]) -> list[str]:
     merged: list[str] = []
@@ -1279,7 +1266,7 @@ def build_create_payload(cfg: RunpodConfig, execution_name: str, gpu_type_ids: l
         "interruptible": cfg.interruptible,
         "supportPublicIp": cfg.support_public_ip,
         "containerDiskInGb": cfg.container_disk_gb,
-        "ports": effective_ports(cfg),
+        "ports": list(cfg.ports),
     }
     if gpu_type_ids:
         payload["gpuTypeIds"] = gpu_type_ids
@@ -1467,7 +1454,7 @@ def write_remote_run_script(
         f"export AUTORESEARCH_SESSION_ID={json.dumps(session_id)}\n"
         f"export AUTORESEARCH_BRANCH={json.dumps(branch)}\n"
         f"export AUTORESEARCH_EXECUTION_ID={json.dumps(paths.execution_dir.name)}\n"
-        f".venv/bin/python scripts/pod_live_relay.py --input {shlex.quote(remote_live_input)} --output {shlex.quote(remote_live_events)} --state {shlex.quote(remote_live_state)} --log {shlex.quote(remote_live_log)} --port {cfg.relay_port} > {shlex.quote(remote_live_log)} 2>&1 &\n"
+        f".venv/bin/python scripts/pod_live_relay.py --input {shlex.quote(remote_live_input)} --output {shlex.quote(remote_live_events)} --state {shlex.quote(remote_live_state)} --log {shlex.quote(remote_live_log)} > {shlex.quote(remote_live_log)} 2>&1 &\n"
         "relay_pid=$!\n"
         "cleanup() {\n"
         "  if [ -n \"${relay_pid:-}\" ]; then\n"
@@ -1589,7 +1576,6 @@ def execute_on_pod(
     finalized_iteration = False
     telemetry_events_path = paths.artifacts_dir / REMOTE_LIVE_EVENTS
     relay_state_path = paths.artifacts_dir / REMOTE_LIVE_STATE
-    relay_ws_url = f"ws://{pod_session.conn.host}:{cfg.relay_port}"
     try:
         write_live_state(
             session_log,
@@ -1655,7 +1641,6 @@ def execute_on_pod(
                 run_log_path=paths.artifacts_dir / "run.log",
                 telemetry_events_path=telemetry_events_path,
                 relay_state_path=relay_state_path,
-                relay_ws_url=relay_ws_url,
                 prepare_manifest=prepare_manifest,
             ),
         )
@@ -1706,7 +1691,6 @@ def execute_on_pod(
                 run_log_path=paths.artifacts_dir / "run.log",
                 telemetry_events_path=telemetry_events_path,
                 relay_state_path=relay_state_path,
-                relay_ws_url=relay_ws_url,
                 prepare_manifest=prepare_manifest,
             ),
         )
@@ -1771,7 +1755,6 @@ def execute_on_pod(
                 run_log_path=paths.artifacts_dir / "run.log",
                 telemetry_events_path=telemetry_events_path,
                 relay_state_path=relay_state_path,
-                relay_ws_url=relay_ws_url,
                 prepare_manifest=prepare_manifest,
                 reflect_manifest=reflect_manifest,
             ),
@@ -1858,7 +1841,6 @@ def execute_on_pod(
                 run_log_path=paths.artifacts_dir / "run.log",
                 telemetry_events_path=telemetry_events_path,
                 relay_state_path=relay_state_path,
-                relay_ws_url=relay_ws_url,
                 prepare_manifest=prepare_manifest,
                 reflect_manifest=reflect_manifest,
             ),

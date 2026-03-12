@@ -1,6 +1,5 @@
 import "server-only";
 
-import { cache } from "react";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -540,7 +539,6 @@ function loadLiveSessionState(sessionDir: string): LiveSessionState | null {
     runLogPath: rawRunLogPath,
     telemetryEventsPath: rawTelemetryEventsPath,
     relayStatePath: rawRelayStatePath,
-    relayWsUrl: asString(liveState.relay_ws_url),
     attentionBackend: telemetry.attentionBackend,
     timeBudgetSeconds: telemetry.timeBudgetSeconds,
     deviceBatchSize: telemetry.deviceBatchSize,
@@ -779,13 +777,13 @@ function loadRunpodSessions(): SessionGraph[] {
     .sort((left, right) => (right.updatedAt ?? "").localeCompare(left.updatedAt ?? ""));
 }
 
-export const getAllSessions = cache((): SessionGraph[] => {
+export function getAllSessions(): SessionGraph[] {
   const experimentSessions = loadExperimentLogSessions();
   const canonicalBranches = new Set(experimentSessions.map((session) => session.branch));
   const runpodSessions = loadRunpodSessions().filter((session) => !canonicalBranches.has(session.branch));
   return [...experimentSessions, ...runpodSessions];
-});
+}
 
-export const getSessionGraph = cache((sessionId: string): SessionGraph | null => {
+export function getSessionGraph(sessionId: string): SessionGraph | null {
   return getAllSessions().find((session) => session.id === sessionId) ?? null;
-});
+}

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, Orbitron, Space_Grotesk } from "next/font/google";
 
+import { AtlasLiveRefresh } from "@/components/AtlasLiveRefresh";
+
 import "./globals.css";
 
 const displayFont = Orbitron({
@@ -33,6 +35,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`atlas-body ${displayFont.variable} ${bodyFont.variable} ${monoFont.variable}`}>
         <div className="atlas-backdrop" />
+        <AtlasLiveRefresh />
         {children}
       </body>
     </html>

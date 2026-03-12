@@ -154,7 +154,6 @@ export type LiveSessionState = {
   runLogPath: string | null;
   telemetryEventsPath: string | null;
   relayStatePath: string | null;
-  relayWsUrl: string | null;
   attentionBackend: string | null;
   timeBudgetSeconds: number | null;
   deviceBatchSize: number | null;

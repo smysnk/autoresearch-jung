@@ -2,7 +2,7 @@
 
 `experiment-atlas` is a small Next.js app for browsing `autoresearch` sessions as structured histories instead of flat log folders.
 
-It prefers the canonical session schema under `experiment_logs/` and falls back to grouped `runpod_runs/` artifacts when the newer schema is not available yet.
+It prefers the canonical session schema under `experiment_logs/` and falls back to grouped `runpod_runs/` artifacts when the newer schema is not available yet. Live updates are driven by filesystem watches on those directories, and the frontend receives those changes over a websocket connection to the Next.js backend.
 
 ## What It Shows
 
@@ -19,6 +19,8 @@ The app reads from the repository root, specifically:
 
 - `experiment_logs/`
 - `runpod_runs/`
+
+The app opens one internal websocket to the Next.js backend. The backend watches those directories with filesystem-level watches and pushes change notifications to the browser. It does not connect directly to Pods for viewer updates.
 
 By default it tries to infer the repo root automatically:
 

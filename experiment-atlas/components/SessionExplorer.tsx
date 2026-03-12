@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { startTransition, useDeferredValue, useEffect, useState } from "react";
+import { startTransition, useDeferredValue, useState } from "react";
 
 import {
   formatCompactNumber,
@@ -316,7 +315,6 @@ export function SessionExplorer({
   initialMode = "chronicle",
   focusTensionId,
 }: SessionExplorerProps) {
-  const router = useRouter();
   const normalizedInitialIteration = normalizeIterationLabel(initialIterationLabel ?? session.live?.currentIterationLabel ?? undefined);
   const latestIteration = session.iterations.at(-1) ?? null;
   const initialIteration =
@@ -334,16 +332,6 @@ export function SessionExplorer({
   const deferredIterationId = useDeferredValue(selectedIterationId);
   const selectedIteration =
     session.iterations.find((iteration) => iteration.id === deferredIterationId) ?? initialIteration ?? null;
-
-  useEffect(() => {
-    if (!session.live?.isActive) {
-      return;
-    }
-    const handle = window.setInterval(() => {
-      router.refresh();
-    }, 5000);
-    return () => window.clearInterval(handle);
-  }, [router, session.live?.isActive]);
 
   if (!selectedIteration) {
     return (
