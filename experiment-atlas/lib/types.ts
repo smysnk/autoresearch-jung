@@ -32,6 +32,17 @@ export type CodeSnapshot = {
   path: string | null;
 };
 
+export type CodexPhaseArtifact = {
+  phase: "prepare" | "reflect";
+  summary: string | null;
+  modifiedFiles: string[];
+  patches: CodeSnapshot[];
+  lastMessage: CodeSnapshot | null;
+  transcript: CodeSnapshot | null;
+  stateSnapshot: CodeSnapshot | null;
+  manifestRaw: Record<string, unknown> | null;
+};
+
 export type TensionNode = {
   id: string;
   label: string;
@@ -61,8 +72,10 @@ export type TranscendentArtifact = {
 
 export type ExecutionArtifacts = {
   runLog: CodeSnapshot | null;
+  liveEvents: CodeSnapshot | null;
   summary: Record<string, unknown> | null;
   metadata: Record<string, unknown> | null;
+  relayState: Record<string, unknown> | null;
 };
 
 export type IterationNode = {
@@ -89,9 +102,70 @@ export type IterationNode = {
   metrics: MetricSnapshot;
   actualCode: CodeSnapshot | null;
   diff: CodeSnapshot | null;
+  preparePhase: CodexPhaseArtifact | null;
+  reflectPhase: CodexPhaseArtifact | null;
   tensions: TensionNode[];
   transcendent: TranscendentArtifact | null;
   execution: ExecutionArtifacts;
+};
+
+export type LiveRunProgress = {
+  step: number | null;
+  epoch: number | null;
+  progressPct: number | null;
+  remainingSeconds: number | null;
+  trainLoss: number | null;
+  trainingSecondsElapsed: number | null;
+  lrMultiplier: number | null;
+  tokensPerSecond: number | null;
+  mfuPercent: number | null;
+  stepDtMs: number | null;
+  currentVramMb: number | null;
+  reservedVramMb: number | null;
+  peakVramMb: number | null;
+  valBpb: number | null;
+  gpuUtilPercent: number | null;
+  gpuMemoryUtilPercent: number | null;
+  tempC: number | null;
+  powerW: number | null;
+};
+
+export type LiveReflectionState = {
+  outcome: string | null;
+  contradictedAssumption: string | null;
+  keepDiscardStatus: string | null;
+  framingDiagnosis: string | null;
+  nextMoveType: string | null;
+  summary: string | null;
+  modifiedFiles: string[];
+  transcendentThought: string | null;
+  resultStatus: string | null;
+};
+
+export type LiveSessionState = {
+  isActive: boolean;
+  phase: string | null;
+  status: string | null;
+  experimentIndex: number | null;
+  experimentCount: number | null;
+  currentIterationLabel: string | null;
+  executionId: string | null;
+  executionDir: string | null;
+  runLogPath: string | null;
+  telemetryEventsPath: string | null;
+  relayStatePath: string | null;
+  relayWsUrl: string | null;
+  attentionBackend: string | null;
+  timeBudgetSeconds: number | null;
+  deviceBatchSize: number | null;
+  totalBatchSize: number | null;
+  gradAccumSteps: number | null;
+  depth: number | null;
+  numParamsM: number | null;
+  lastEventType: string | null;
+  reflection: LiveReflectionState | null;
+  updatedAt: string | null;
+  progress: LiveRunProgress | null;
 };
 
 export type SessionStats = {
@@ -119,6 +193,7 @@ export type SessionGraph = {
   notes: string | null;
   manifestRaw: Record<string, unknown> | null;
   sessionRaw: Record<string, unknown> | null;
+  live: LiveSessionState | null;
   iterations: IterationNode[];
   tensions: TensionNode[];
   stats: SessionStats;

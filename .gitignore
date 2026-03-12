@@ -25,6 +25,7 @@ dev/
 /run.log
 research_state/
 remote_runs/
+experiment_logs/*/live/
 # Keep only curated Runpod reports under runpod_runs/*/reports/
 runpod_runs/*/artifacts/
 runpod_runs/*/logs/

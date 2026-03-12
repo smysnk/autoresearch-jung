@@ -7,7 +7,7 @@ import difflib
 import json
 import re
 import subprocess
-from shutil import copy2
+from shutil import copy2, copytree
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -53,6 +53,7 @@ class SessionPaths:
     session_id: str
     session_dir: Path
     iterations_dir: Path
+    live_dir: Path
     session_path: Path
     manifest_path: Path
 
@@ -66,6 +67,7 @@ class IterationPaths:
     candidate_commit: str | None
     iteration_dir: Path
     actual_dir: Path
+    codex_dir: Path
     execution_dir: Path
     tensions_dir: Path
     transcendent_dir: Path
@@ -83,9 +85,11 @@ def ensure_session_log(
     session_id = session_id_for_branch(branch)
     session_dir = repo_root / "experiment_logs" / session_id
     iterations_dir = session_dir / "iterations"
+    live_dir = session_dir / "live"
     session_path = session_dir / "session.json"
     manifest_path = session_dir / "manifest.json"
     iterations_dir.mkdir(parents=True, exist_ok=True)
+    live_dir.mkdir(parents=True, exist_ok=True)
 
     now = iso_now()
 
@@ -141,6 +145,7 @@ def ensure_session_log(
         session_id=session_id,
         session_dir=session_dir,
         iterations_dir=iterations_dir,
+        live_dir=live_dir,
         session_path=session_path,
         manifest_path=manifest_path,
     )
@@ -163,12 +168,14 @@ def start_iteration(
     iteration_label = f"{iteration:03d}"
     iteration_dir = session.iterations_dir / iteration_label
     actual_dir = iteration_dir / "actual"
+    codex_dir = iteration_dir / "codex"
     execution_dir = iteration_dir / "execution"
     tensions_dir = iteration_dir / "tensions"
     transcendent_dir = iteration_dir / "transcendent"
     plan_path = iteration_dir / "plan.json"
     result_path = iteration_dir / "result.json"
     actual_dir.mkdir(parents=True, exist_ok=True)
+    codex_dir.mkdir(parents=True, exist_ok=True)
     execution_dir.mkdir(parents=True, exist_ok=True)
     tensions_dir.mkdir(parents=True, exist_ok=True)
     transcendent_dir.mkdir(parents=True, exist_ok=True)
@@ -232,6 +239,7 @@ def start_iteration(
         candidate_commit=candidate_commit,
         iteration_dir=iteration_dir,
         actual_dir=actual_dir,
+        codex_dir=codex_dir,
         execution_dir=execution_dir,
         tensions_dir=tensions_dir,
         transcendent_dir=transcendent_dir,
@@ -253,6 +261,78 @@ def bind_execution(iteration: IterationPaths, *, execution_dir: Path) -> None:
     result["execution_id"] = execution_id
     result["execution_dir"] = relative_execution_dir
     write_json(iteration.result_path, result)
+
+
+def live_state_path(session: SessionPaths) -> Path:
+    return session.live_dir / "state.json"
+
+
+def live_events_path(session: SessionPaths) -> Path:
+    return session.live_dir / "events.ndjson"
+
+
+def live_phase_dir(session: SessionPaths, *, iteration_label: str, phase: str) -> Path:
+    path = session.live_dir / "iterations" / iteration_label / phase
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def write_live_state(session: SessionPaths, payload: dict[str, Any]) -> None:
+    write_json(live_state_path(session), payload)
+
+
+def append_live_event(session: SessionPaths, payload: dict[str, Any]) -> None:
+    path = live_events_path(session)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a") as fh:
+        fh.write(json.dumps(payload, sort_keys=True) + "\n")
+
+
+def clear_live_state(session: SessionPaths, *, final_phase: str, status: str) -> None:
+    state = read_json(live_state_path(session))
+    if not state:
+        return
+    state["is_active"] = False
+    state["phase"] = final_phase
+    state["status"] = status
+    state["updated_at"] = iso_now()
+    write_live_state(session, state)
+    append_live_event(
+        session,
+        {
+            "timestamp": iso_now(),
+            "type": "live_state_closed",
+            "phase": final_phase,
+            "status": status,
+        },
+    )
+
+
+def bind_codex_phase_artifacts(iteration: IterationPaths, *, phase: str, source_dir: Path) -> None:
+    if not source_dir.exists():
+        return
+    target_dir = iteration.codex_dir / phase
+    copytree(source_dir, target_dir, dirs_exist_ok=True)
+    manifest = read_json(target_dir / "manifest.json")
+    relative_target_dir = _relative_to_session(iteration, target_dir)
+
+    if phase == "prepare":
+        plan = read_json(iteration.plan_path)
+        plan["prepare_phase_path"] = relative_target_dir
+        plan["prepare_modified_files"] = manifest.get("modified_files", [])
+        plan["prepare_summary"] = manifest.get("summary")
+        write_json(iteration.plan_path, plan)
+        return
+
+    if phase == "reflect":
+        result = read_json(iteration.result_path)
+        result["reflect_phase_path"] = relative_target_dir
+        result["reflect_modified_files"] = manifest.get("modified_files", [])
+        result["reflect_summary"] = manifest.get("summary")
+        write_json(iteration.result_path, result)
+        return
+
+    raise RuntimeError(f"unsupported codex phase: {phase}")
 
 
 def snapshot_tested_train_py(
@@ -516,12 +596,18 @@ def capture_execution_artifacts(
     iteration: IterationPaths,
     *,
     run_log_path: Path | None,
+    telemetry_events_path: Path | None,
+    relay_state_path: Path | None,
     summary: dict[str, Any],
     run_metadata: dict[str, Any],
     execution_ref: dict[str, Any],
 ) -> None:
     if run_log_path is not None and run_log_path.exists():
         copy2(run_log_path, iteration.execution_dir / "run.log")
+    if telemetry_events_path is not None and telemetry_events_path.exists():
+        copy2(telemetry_events_path, iteration.execution_dir / "live-events.ndjson")
+    if relay_state_path is not None and relay_state_path.exists():
+        copy2(relay_state_path, iteration.execution_dir / "relay-state.json")
     write_json(iteration.execution_dir / "summary.json", summary)
     write_json(iteration.execution_dir / "run-metadata.json", run_metadata)
     write_json(iteration.execution_dir / "execution-ref.json", execution_ref)

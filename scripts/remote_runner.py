@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import posixpath
 import re
@@ -23,6 +24,12 @@ from experiment_log import (
     finalize_iteration,
     snapshot_tested_train_py,
     start_iteration,
+)
+from codex_agent import (
+    ensure_codex_available,
+    load_codex_agent_config,
+    phase_output_paths,
+    run_codex_phase,
 )
 
 
@@ -424,6 +431,28 @@ def setup_command(cfg: RemoteConfig, args: argparse.Namespace) -> int:
 def run_command(cfg: RemoteConfig, args: argparse.Namespace) -> int:
     branch = ensure_experiment_branch(cfg.repo_root)
     session_log = ensure_session_log(cfg.repo_root, branch=branch, runner_mode="remote")
+    codex_cfg = load_codex_agent_config(cfg.repo_root)
+    ensure_codex_available(codex_cfg)
+    manifest = json.loads(session_log.manifest_path.read_text())
+    next_experiment_index = int(manifest.get("latest_iteration") or 0) + 1
+    baseline_run = not bool(manifest.get("iterations", []))
+    prepare_log_path, prepare_output_path = phase_output_paths(
+        repo_root=cfg.repo_root,
+        session_id=session_log.session_id,
+        experiment_index=next_experiment_index,
+        phase="prepare",
+    )
+    run_codex_phase(
+        repo_root=cfg.repo_root,
+        cfg=codex_cfg,
+        runner_mode="remote",
+        branch=branch,
+        experiment_index=next_experiment_index,
+        phase="prepare",
+        log_path=prepare_log_path,
+        output_path=prepare_output_path,
+        baseline_run=baseline_run,
+    )
     parent_commit = git_stdout(cfg.repo_root, ["rev-parse", "--short", "HEAD"])
     pre_commit = commit_nonignored_changes(
         cfg.repo_root,
@@ -435,7 +464,7 @@ def run_command(cfg: RemoteConfig, args: argparse.Namespace) -> int:
     iteration_log = start_iteration(
         session_log,
         runner_mode="remote",
-        experiment_index=None,
+        experiment_index=next_experiment_index,
         parent_commit=parent_commit,
         candidate_commit=candidate_commit,
     )
@@ -487,6 +516,24 @@ export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
         train_py_path=cfg.local_train_py,
         parent_commit=iteration_log.parent_commit,
     )
+    reflect_log_path, reflect_output_path = phase_output_paths(
+        repo_root=cfg.repo_root,
+        session_id=session_log.session_id,
+        experiment_index=iteration_log.iteration,
+        phase="reflect",
+    )
+    run_codex_phase(
+        repo_root=cfg.repo_root,
+        cfg=codex_cfg,
+        runner_mode="remote",
+        branch=branch,
+        experiment_index=iteration_log.iteration,
+        phase="reflect",
+        log_path=reflect_log_path,
+        output_path=reflect_output_path,
+        run_log_path=cfg.local_run_log,
+        execution_dir=iteration_log.execution_dir,
+    )
     capture_dialectical_state(
         iteration_log,
         repo_root=cfg.repo_root,
@@ -497,6 +544,8 @@ export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
     capture_execution_artifacts(
         iteration_log,
         run_log_path=cfg.local_run_log,
+        telemetry_events_path=None,
+        relay_state_path=None,
         summary=summary,
         run_metadata={
             "runner_mode": "remote",

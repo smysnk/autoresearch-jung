@@ -5,8 +5,12 @@ import fs from "node:fs";
 import path from "node:path";
 
 import type {
+  CodexPhaseArtifact,
   CodeSnapshot,
   IterationNode,
+  LiveReflectionState,
+  LiveRunProgress,
+  LiveSessionState,
   MetricSnapshot,
   SessionGraph,
   SessionStats,
@@ -161,6 +165,199 @@ function normalizeMetrics(raw: JsonRecord | null): MetricSnapshot {
   };
 }
 
+function parseLiveRunProgress(runLog: string | null): LiveRunProgress | null {
+  if (!runLog) {
+    return null;
+  }
+
+  const stepMatches = [...runLog.matchAll(
+    /step\s+(\d+)\s+\(([\d.]+)%\)\s+\|\s+loss:\s+([\d.]+)\s+\|\s+lrm:\s+([\d.]+)\s+\|\s+dt:\s+\d+ms\s+\|\s+tok\/sec:\s+([\d,]+)\s+\|\s+mfu:\s+([\d.]+)%\s+\|\s+epoch:\s+(\d+)\s+\|\s+remaining:\s+(\d+)s/gi,
+  )];
+  const match = stepMatches.at(-1);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    step: toNumber(match[1]),
+    progressPct: toNumber(match[2]),
+    trainLoss: toNumber(match[3]),
+    trainingSecondsElapsed: null,
+    lrMultiplier: toNumber(match[4]),
+    tokensPerSecond: toNumber(match[5].replaceAll(",", "")),
+    mfuPercent: toNumber(match[6]),
+    epoch: toNumber(match[7]),
+    remainingSeconds: toNumber(match[8]),
+    stepDtMs: null,
+    currentVramMb: null,
+    reservedVramMb: null,
+    peakVramMb: null,
+    valBpb: null,
+    gpuUtilPercent: null,
+    gpuMemoryUtilPercent: null,
+    tempC: null,
+    powerW: null,
+  };
+}
+
+type LiveTelemetryParseResult = {
+  progress: LiveRunProgress | null;
+  attentionBackend: string | null;
+  timeBudgetSeconds: number | null;
+  deviceBatchSize: number | null;
+  totalBatchSize: number | null;
+  gradAccumSteps: number | null;
+  depth: number | null;
+  numParamsM: number | null;
+  lastEventType: string | null;
+};
+
+type LiveRunnerEventsParseResult = {
+  lastEventType: string | null;
+  reflection: LiveReflectionState | null;
+};
+
+function readJsonFromLine(line: string): JsonRecord | null {
+  try {
+    const parsed = JSON.parse(line) as unknown;
+    return asRecord(parsed);
+  } catch {
+    return null;
+  }
+}
+
+function scaleParamTotal(value: unknown): number | null {
+  const total = toNumber(value);
+  return total === null ? null : total / 1_000_000;
+}
+
+function parseLiveTelemetryEvents(content: string | null): LiveTelemetryParseResult {
+  const fallback: LiveTelemetryParseResult = {
+    progress: null,
+    attentionBackend: null,
+    timeBudgetSeconds: null,
+    deviceBatchSize: null,
+    totalBatchSize: null,
+    gradAccumSteps: null,
+    depth: null,
+    numParamsM: null,
+    lastEventType: null,
+  };
+  if (!content) {
+    return fallback;
+  }
+
+  let latestTrainStep: JsonRecord | null = null;
+  let runStarted: JsonRecord | null = null;
+  let runSummary: JsonRecord | null = null;
+  let lastEventType: string | null = null;
+
+  for (const line of content.split(/\r?\n/)) {
+    if (!line.trim()) {
+      continue;
+    }
+    const event = readJsonFromLine(line);
+    if (!event) {
+      continue;
+    }
+    lastEventType = asString(event.type) ?? lastEventType;
+    if (event.type === "run_started") {
+      runStarted = event;
+      continue;
+    }
+    if (event.type === "train_step") {
+      latestTrainStep = event;
+      continue;
+    }
+    if (event.type === "run_summary") {
+      runSummary = event;
+    }
+  }
+
+  const progressSource = latestTrainStep ?? runSummary;
+  const cuda = asRecord(progressSource?.cuda);
+  const config = asRecord(runStarted?.config);
+  const paramCounts = asRecord(runStarted?.param_counts);
+
+  return {
+    progress: progressSource
+      ? {
+          step: toNumber(progressSource.step ?? progressSource.num_steps),
+          epoch: toNumber(progressSource.epoch),
+          progressPct: toNumber(progressSource.progress_pct) ?? (progressSource === runSummary ? 100 : null),
+          remainingSeconds: toNumber(progressSource.remaining_seconds) ?? (progressSource === runSummary ? 0 : null),
+          trainLoss: toNumber(progressSource.train_loss_ema ?? progressSource.train_loss_raw),
+          trainingSecondsElapsed: toNumber(progressSource.training_seconds_elapsed ?? progressSource.training_seconds),
+          lrMultiplier: toNumber(progressSource.lr_multiplier),
+          tokensPerSecond: toNumber(progressSource.tokens_per_second),
+          mfuPercent: toNumber(progressSource.mfu_percent_instant ?? progressSource.mfu_percent),
+          stepDtMs: toNumber(progressSource.step_dt_ms),
+          currentVramMb: toNumber(cuda?.memory_allocated_mb),
+          reservedVramMb: toNumber(cuda?.memory_reserved_mb),
+          peakVramMb: toNumber(cuda?.max_memory_allocated_mb ?? progressSource.peak_vram_mb),
+          valBpb: toNumber(progressSource.val_bpb),
+          gpuUtilPercent: toNumber(asRecord(progressSource.gpu)?.util_percent),
+          gpuMemoryUtilPercent: toNumber(asRecord(progressSource.gpu)?.mem_util_percent),
+          tempC: toNumber(asRecord(progressSource.gpu)?.temp_c),
+          powerW: toNumber(asRecord(progressSource.gpu)?.power_w),
+        }
+      : null,
+    attentionBackend: asString(runStarted?.attention_backend),
+    timeBudgetSeconds: toNumber(runStarted?.time_budget_s),
+    deviceBatchSize: toNumber(runStarted?.device_batch_size),
+    totalBatchSize: toNumber(runStarted?.total_batch_size),
+    gradAccumSteps: toNumber(runStarted?.grad_accum_steps),
+    depth: toNumber(runSummary?.depth ?? config?.n_layer),
+    numParamsM: toNumber(runSummary?.num_params_M) ?? scaleParamTotal(paramCounts?.total),
+    lastEventType,
+  };
+}
+
+function parseLiveRunnerEvents(content: string | null): LiveRunnerEventsParseResult {
+  const fallback: LiveRunnerEventsParseResult = {
+    lastEventType: null,
+    reflection: null,
+  };
+  if (!content) {
+    return fallback;
+  }
+
+  let lastEventType: string | null = null;
+  let reflection: LiveReflectionState | null = null;
+
+  for (const line of content.split(/\r?\n/)) {
+    if (!line.trim()) {
+      continue;
+    }
+    const event = readJsonFromLine(line);
+    if (!event) {
+      continue;
+    }
+    lastEventType = asString(event.type) ?? lastEventType;
+    if (event.type !== "reflection_completed") {
+      continue;
+    }
+    const reflectChanges = asRecord(event.reflect_changes);
+    const transcendent = asRecord(event.transcendent_result);
+    reflection = {
+      outcome: asString(event.outcome),
+      contradictedAssumption: asString(event.contradicted_assumption),
+      keepDiscardStatus: asString(event.keep_discard_status),
+      framingDiagnosis: asString(event.framing_diagnosis),
+      nextMoveType: asString(event.next_move_type),
+      summary: asString(reflectChanges?.summary) ?? asString(event.summary),
+      modifiedFiles: asStringArray(reflectChanges?.modified_files),
+      transcendentThought: asString(transcendent?.emergent_thought),
+      resultStatus: asString(transcendent?.result_status),
+    };
+  }
+
+  return {
+    lastEventType,
+    reflection,
+  };
+}
+
 function parseRunpodTimestamp(executionId: string): string | null {
   const match = executionId.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z/);
   if (!match) {
@@ -269,19 +466,112 @@ function loadTranscendentArtifact(iterationDir: string): TranscendentArtifact | 
   };
 }
 
+function loadCodexPhaseArtifact(iterationDir: string, phase: "prepare" | "reflect"): CodexPhaseArtifact | null {
+  const phaseDir = path.join(iterationDir, "codex", phase);
+  if (!isDirectory(phaseDir)) {
+    return null;
+  }
+
+  const manifestPath = path.join(phaseDir, "manifest.json");
+  const manifest = readJson(manifestPath);
+  const lastMessagePath = path.join(phaseDir, "last-message.txt");
+  const transcriptPath = path.join(phaseDir, "transcript.log");
+  const statePath = path.join(phaseDir, "current_iteration.json");
+  const patchesDir = path.join(phaseDir, "patches");
+  const patches = isDirectory(patchesDir)
+    ? fs
+        .readdirSync(patchesDir)
+        .filter((name) => name.endsWith(".diff.patch"))
+        .sort()
+        .map((name) => {
+          const patchPath = path.join(patchesDir, name);
+          return makeCodeSnapshot(name, "diff", readText(patchPath), patchPath);
+        })
+        .filter((snapshot): snapshot is CodeSnapshot => Boolean(snapshot))
+    : [];
+
+  return {
+    phase,
+    summary: asString(manifest?.summary),
+    modifiedFiles: asStringArray(manifest?.modified_files),
+    patches,
+    lastMessage: makeCodeSnapshot("Codex last message", "text", readText(lastMessagePath), lastMessagePath),
+    transcript: makeCodeSnapshot("Codex transcript", "log", readText(transcriptPath), transcriptPath),
+    stateSnapshot: makeCodeSnapshot("Staged iteration state", "json", readText(statePath), statePath),
+    manifestRaw: manifest,
+  };
+}
+
+function loadLiveSessionState(sessionDir: string): LiveSessionState | null {
+  const liveStatePath = path.join(sessionDir, "live", "state.json");
+  const liveState = readJson(liveStatePath);
+  if (!liveState) {
+    return null;
+  }
+
+  const rawRunLogPath = asString(liveState.run_log_path);
+  const runnerEventsPath = path.join(sessionDir, "live", "events.ndjson");
+  const rawTelemetryEventsPath = asString(liveState.telemetry_events_path);
+  const rawRelayStatePath = asString(liveState.relay_state_path);
+  let runLog: string | null = null;
+  if (rawRunLogPath) {
+    const resolved = path.isAbsolute(rawRunLogPath) ? rawRunLogPath : path.join(getRepoRoot(), rawRunLogPath);
+    runLog = readText(resolved);
+  }
+  let telemetryEvents: string | null = null;
+  if (rawTelemetryEventsPath) {
+    const resolved = path.isAbsolute(rawTelemetryEventsPath)
+      ? rawTelemetryEventsPath
+      : path.join(getRepoRoot(), rawTelemetryEventsPath);
+    telemetryEvents = readText(resolved);
+  }
+  const telemetry = parseLiveTelemetryEvents(telemetryEvents);
+  const runnerEvents = parseLiveRunnerEvents(readText(runnerEventsPath));
+
+  return {
+    isActive: Boolean(liveState.is_active),
+    phase: asString(liveState.phase),
+    status: asString(liveState.status),
+    experimentIndex: toNumber(liveState.experiment_index),
+    experimentCount: toNumber(liveState.experiment_count),
+    currentIterationLabel: asString(liveState.current_iteration_label),
+    executionId: asString(liveState.execution_id),
+    executionDir: asString(liveState.execution_dir),
+    runLogPath: rawRunLogPath,
+    telemetryEventsPath: rawTelemetryEventsPath,
+    relayStatePath: rawRelayStatePath,
+    relayWsUrl: asString(liveState.relay_ws_url),
+    attentionBackend: telemetry.attentionBackend,
+    timeBudgetSeconds: telemetry.timeBudgetSeconds,
+    deviceBatchSize: telemetry.deviceBatchSize,
+    totalBatchSize: telemetry.totalBatchSize,
+    gradAccumSteps: telemetry.gradAccumSteps,
+    depth: telemetry.depth,
+    numParamsM: telemetry.numParamsM,
+    lastEventType: telemetry.lastEventType ?? runnerEvents.lastEventType,
+    reflection: runnerEvents.reflection,
+    updatedAt: asString(liveState.updated_at),
+    progress: telemetry.progress ?? parseLiveRunProgress(runLog),
+  };
+}
+
 function loadExperimentIteration(sessionId: string, iterationDir: string): IterationNode {
   const planPath = path.join(iterationDir, "plan.json");
   const resultPath = path.join(iterationDir, "result.json");
   const actualPath = path.join(iterationDir, "actual", "train.py");
   const diffPath = path.join(iterationDir, "actual", "train.diff.patch");
   const runLogPath = path.join(iterationDir, "execution", "run.log");
+  const liveEventsPath = path.join(iterationDir, "execution", "live-events.ndjson");
+  const relayStatePath = path.join(iterationDir, "execution", "relay-state.json");
   const summaryPath = path.join(iterationDir, "execution", "summary.json");
   const metadataPath = path.join(iterationDir, "execution", "run-metadata.json");
   const plan = readJson(planPath);
   const result = readJson(resultPath);
   const summary = readJson(summaryPath);
   const metadata = readJson(metadataPath);
+  const relayState = readJson(relayStatePath);
   const runLog = readText(runLogPath);
+  const liveEvents = readText(liveEventsPath);
   const actualCode = readText(actualPath);
   const diff = readText(diffPath);
   const iterationLabel = path.basename(iterationDir);
@@ -316,12 +606,16 @@ function loadExperimentIteration(sessionId: string, iterationDir: string): Itera
     metrics: normalizeMetrics(metricSource),
     actualCode: makeCodeSnapshot("Tested train.py", "python", actualCode, actualPath),
     diff: makeCodeSnapshot("train.py diff", "diff", diff, diffPath),
+    preparePhase: loadCodexPhaseArtifact(iterationDir, "prepare"),
+    reflectPhase: loadCodexPhaseArtifact(iterationDir, "reflect"),
     tensions,
     transcendent: loadTranscendentArtifact(iterationDir),
     execution: {
       runLog: makeCodeSnapshot("Execution log", "log", runLog, runLogPath),
+      liveEvents: makeCodeSnapshot("Structured live telemetry", "log", liveEvents, liveEventsPath),
       summary,
       metadata,
+      relayState,
     },
   };
 }
@@ -359,12 +653,21 @@ function loadExperimentLogSessions(): SessionGraph[] {
         notes: asString(session?.notes),
         manifestRaw: manifest,
         sessionRaw: session,
+        live: loadLiveSessionState(sessionDir),
         iterations,
         tensions,
         stats: buildStats(iterations, tensions),
       };
     })
-    .sort((left, right) => (right.updatedAt ?? "").localeCompare(left.updatedAt ?? ""));
+    .sort((left, right) => {
+      const liveDelta = Number(Boolean(right.live?.isActive)) - Number(Boolean(left.live?.isActive));
+      if (liveDelta !== 0) {
+        return liveDelta;
+      }
+      const rightStamp = right.live?.updatedAt ?? right.updatedAt ?? "";
+      const leftStamp = left.live?.updatedAt ?? left.updatedAt ?? "";
+      return rightStamp.localeCompare(leftStamp);
+    });
 }
 
 function loadRunpodSessions(): SessionGraph[] {
@@ -437,12 +740,16 @@ function loadRunpodSessions(): SessionGraph[] {
           metrics: normalizeMetrics(summary ?? parseRunLogSummary(runLog)),
           actualCode: null,
           diff: null,
+          preparePhase: null,
+          reflectPhase: null,
           tensions: [],
           transcendent: null,
           execution: {
             runLog: makeCodeSnapshot("Execution log", "log", runLog, runLogPath),
+            liveEvents: null,
             summary,
             metadata,
+            relayState: null,
           },
         };
       });
@@ -463,6 +770,7 @@ function loadRunpodSessions(): SessionGraph[] {
         notes: "Fallback session assembled from runpod artifacts.",
         manifestRaw: null,
         sessionRaw: null,
+        live: null,
         iterations,
         tensions,
         stats: buildStats(iterations, tensions),

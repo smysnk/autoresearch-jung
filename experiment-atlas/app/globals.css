@@ -125,9 +125,9 @@ select {
 }
 
 .hero-panel {
-  padding: 28px;
+  padding: 20px;
   display: grid;
-  gap: 24px;
+  gap: 14px;
 }
 
 .hero-panel-tight {
@@ -327,19 +327,19 @@ select {
 
 .hero-metrics {
   display: grid;
-  gap: 16px;
+  gap: 12px;
 }
 
 .hero-metrics-wide {
   grid-column: 1 / -1;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
 
 .metric-card,
 .datum-card,
 .narrative-card,
 .selected-summary-card {
-  padding: 16px 18px;
+  padding: 12px 14px;
   border-radius: 18px;
   border: 1px solid rgba(99, 247, 255, 0.12);
   background: var(--atlas-panel-strong);
@@ -349,8 +349,8 @@ select {
 .metric-card strong,
 .datum-card strong {
   display: block;
-  font-size: 1.6rem;
-  margin-top: 8px;
+  font-size: 1.35rem;
+  margin-top: 6px;
   font-family: var(--atlas-font-display);
   letter-spacing: 0.04em;
 }
@@ -393,7 +393,7 @@ select {
 
 .gallery-panel {
   margin-top: 26px;
-  padding: 24px;
+  padding: 16px;
 }
 
 .section-heading {
@@ -406,14 +406,14 @@ select {
 
 .session-grid {
   display: grid;
-  gap: 18px;
+  gap: 14px;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 }
 
 .session-card {
   display: grid;
-  gap: 18px;
-  padding: 22px;
+  gap: 10px;
+  padding: 14px;
   color: inherit;
   text-decoration: none;
   border-radius: 22px;
@@ -424,6 +424,13 @@ select {
   transition: transform 180ms ease, border-color 180ms ease;
   position: relative;
   overflow: hidden;
+}
+
+.session-card-live {
+  border-color: rgba(255, 127, 80, 0.28);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 127, 80, 0.08),
+    var(--atlas-glow-orange);
 }
 
 .session-card::before,
@@ -534,6 +541,18 @@ select {
   color: var(--atlas-synthesis);
 }
 
+.badge-live {
+  background: rgba(255, 127, 80, 0.14);
+  color: var(--atlas-antithesis);
+  box-shadow: 0 0 18px rgba(255, 127, 80, 0.18);
+}
+
+.badge-reconciled {
+  background: rgba(195, 255, 103, 0.14);
+  color: var(--atlas-synthesis);
+  box-shadow: 0 0 18px rgba(195, 255, 103, 0.12);
+}
+
 .badge-neutral {
   background: rgba(99, 247, 255, 0.12);
   color: var(--atlas-thesis);
@@ -556,15 +575,15 @@ select {
 
 .explorer-layout {
   display: grid;
-  gap: 20px;
+  gap: 14px;
   margin-top: 22px;
-  grid-template-columns: 320px minmax(0, 1fr) 420px;
+  grid-template-columns: 282px minmax(0, 1fr) 340px;
 }
 
 .iteration-rail,
 .view-panel,
 .inspector-card {
-  padding: 20px;
+  padding: 16px;
 }
 
 .rail-list {
@@ -579,7 +598,7 @@ select {
 .rail-item {
   width: 100%;
   text-align: left;
-  padding: 16px;
+  padding: 14px;
   border-radius: 20px;
   border: 1px solid rgba(99, 247, 255, 0.12);
   background: rgba(8, 20, 33, 0.88);
@@ -588,6 +607,11 @@ select {
   gap: 10px;
   position: relative;
   overflow: hidden;
+}
+
+.rail-item-live {
+  border-color: rgba(255, 127, 80, 0.24);
+  box-shadow: inset 0 0 0 1px rgba(255, 127, 80, 0.08);
 }
 
 .rail-item-active {
@@ -650,7 +674,147 @@ select {
 .view-stack,
 .inspector-content {
   display: grid;
-  gap: 18px;
+  gap: 14px;
+}
+
+.live-progress-panel,
+.progress-stack {
+  display: grid;
+  gap: 8px;
+}
+
+.progress-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.progress-row-compact {
+  margin-top: 2px;
+}
+
+.progress-copy {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.progress-label {
+  color: var(--atlas-muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.progress-copy strong {
+  color: var(--atlas-ink);
+  font-family: var(--atlas-font-display);
+  font-size: 0.94rem;
+  letter-spacing: 0.06em;
+}
+
+.progress-meta {
+  color: var(--atlas-muted);
+  font-size: 0.82rem;
+  text-align: right;
+}
+
+.progress-bar {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(143, 185, 204, 0.12);
+  border: 1px solid rgba(99, 247, 255, 0.12);
+}
+
+.progress-bar-subtle {
+  height: 6px;
+  opacity: 0.82;
+}
+
+.progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(255, 127, 80, 0.88), rgba(99, 247, 255, 0.92));
+  box-shadow: 0 0 18px rgba(99, 247, 255, 0.24);
+}
+
+.progress-fill-scope {
+  background: linear-gradient(90deg, rgba(195, 255, 103, 0.88), rgba(99, 247, 255, 0.82));
+}
+
+.live-metric-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+  gap: 7px;
+  margin-top: 4px;
+}
+
+.live-metric-strip div {
+  padding: 7px 8px;
+  border: 1px solid rgba(93, 227, 255, 0.18);
+  border-radius: 11px;
+  background: linear-gradient(180deg, rgba(7, 15, 25, 0.92), rgba(8, 19, 32, 0.76));
+}
+
+.live-metric-strip dt {
+  margin: 0;
+  font-size: 0.56rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(162, 248, 255, 0.74);
+}
+
+.live-metric-strip dd {
+  margin: 3px 0 0;
+  color: rgba(240, 252, 255, 0.96);
+  font-family: var(--atlas-font-mono);
+  font-size: 0.8rem;
+}
+
+.live-metric-strip-dense {
+  margin-top: 6px;
+}
+
+.live-phase-note {
+  margin: 2px 0 0;
+  color: rgba(210, 247, 255, 0.82);
+  font-size: 0.8rem;
+}
+
+.session-state-strip {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(99, 247, 255, 0.1);
+  background: rgba(8, 20, 33, 0.76);
+}
+
+.session-state-strip-wide {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.session-state-strip dt {
+  margin: 0;
+  color: var(--atlas-muted);
+  font-size: 0.58rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.session-state-strip dd {
+  margin: 3px 0 0;
+  color: var(--atlas-ink);
+  font-family: var(--atlas-font-mono);
+  font-size: 0.78rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .chart-svg {
@@ -1072,7 +1236,7 @@ select {
   border-radius: 18px;
   background: rgba(8, 20, 33, 0.82);
   border: 1px solid rgba(99, 247, 255, 0.1);
-  padding: 14px;
+  padding: 10px;
 }
 
 .compact-detail-list {
@@ -1083,18 +1247,18 @@ select {
 
 .panel-block {
   display: grid;
-  gap: 12px;
+  gap: 8px;
 }
 
 .code-frame {
   margin: 0;
-  padding: 16px;
+  padding: 14px;
   border-radius: 18px;
   border: 1px solid rgba(99, 247, 255, 0.14);
   background:
     linear-gradient(180deg, rgba(4, 15, 24, 0.98), rgba(6, 20, 32, 0.98));
   color: #defcff;
-  max-height: 420px;
+  max-height: 320px;
   overflow: auto;
   font-size: 0.84rem;
   line-height: 1.55;
@@ -1103,7 +1267,66 @@ select {
 }
 
 .code-frame-compact {
-  max-height: 260px;
+  max-height: 200px;
+}
+
+.patch-stack {
+  display: grid;
+  gap: 8px;
+}
+
+.patch-drawer {
+  border-radius: 16px;
+  border: 1px solid rgba(99, 247, 255, 0.12);
+  background: rgba(7, 19, 31, 0.84);
+  overflow: hidden;
+}
+
+.patch-summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+}
+
+.patch-summary::-webkit-details-marker {
+  display: none;
+}
+
+.patch-summary-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.patch-summary-copy strong {
+  color: var(--atlas-ink);
+  font-size: 0.88rem;
+}
+
+.patch-summary-copy span {
+  color: var(--atlas-muted);
+  font-size: 0.74rem;
+  font-family: var(--atlas-font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.patch-summary-stats {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(195, 255, 103, 0.88);
+  font-family: var(--atlas-font-mono);
+  font-size: 0.78rem;
+}
+
+.patch-summary-stats span:last-child {
+  color: rgba(255, 127, 80, 0.9);
 }
 
 .json-frame {
@@ -1159,6 +1382,10 @@ select {
     justify-self: stretch;
     width: 100%;
   }
+
+  .session-state-strip-wide {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 980px) {
@@ -1170,7 +1397,9 @@ select {
   .explorer-layout,
   .mirror-grid,
   .note-grid,
-  .hero-metrics-wide {
+  .hero-metrics-wide,
+  .session-state-strip,
+  .session-state-strip-wide {
     grid-template-columns: 1fr;
   }
 

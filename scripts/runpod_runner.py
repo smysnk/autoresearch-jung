@@ -22,15 +22,28 @@ from pathlib import Path
 from typing import Any
 
 from experiment_log import (
+    append_live_event,
     capture_dialectical_state,
     capture_execution_artifacts,
     IterationPaths,
     bind_execution,
+    bind_codex_phase_artifacts,
+    clear_live_state,
     ensure_session_log,
     finalize_iteration,
+    live_phase_dir,
     snapshot_tested_train_py,
     start_iteration,
+    write_live_state,
 )
+from codex_agent import (
+    CodexAgentConfig,
+    ensure_codex_available,
+    load_codex_agent_config,
+    phase_output_paths,
+    run_codex_phase,
+)
+from live_monitor import capture_codex_phase_artifacts, snapshot_phase_inputs
 
 
 API_BASE = "https://rest.runpod.io/v1"
@@ -38,6 +51,10 @@ DEFAULT_CONFIG_PATH = "runpod.json"
 DEFAULT_PROFILES_PATH = "profiles.json"
 DEFAULT_IMAGE = "runpod/pytorch:2.8.0-py3.11-cuda12.8.1-cudnn-devel-ubuntu22.04"
 DEFAULT_ENV_PATH = ".env"
+REMOTE_LIVE_INPUT = "live/train-events.ndjson"
+REMOTE_LIVE_EVENTS = "live/relay-events.ndjson"
+REMOTE_LIVE_STATE = "live/relay-state.json"
+REMOTE_LIVE_LOG = "live/relay.log"
 SYNC_EXCLUDES = [
     ".git/",
     ".venv/",
@@ -56,6 +73,10 @@ DEFAULT_ARTIFACTS = [
     "run.log",
     "results.tsv",
     "research_journal.tsv",
+    REMOTE_LIVE_INPUT,
+    REMOTE_LIVE_EVENTS,
+    REMOTE_LIVE_STATE,
+    REMOTE_LIVE_LOG,
 ]
 TRACKED_REPORT_ARTIFACTS = [
     "run.log",
@@ -261,6 +282,7 @@ class RunpodConfig:
     min_ram_per_gpu_gb: int | None = None
     min_vcpu_per_gpu: int | None = None
     ports: list[str] = field(default_factory=lambda: ["22/tcp"])
+    relay_port: int = 8765
     ssh_user: str = "root"
     remote_base_dir: str = "/root/autoresearch"
     prepare_num_shards: int = 10
@@ -319,6 +341,7 @@ class RunpodConfig:
             min_ram_per_gpu_gb=int(data["min_ram_per_gpu_gb"]) if data.get("min_ram_per_gpu_gb") is not None else None,
             min_vcpu_per_gpu=int(data["min_vcpu_per_gpu"]) if data.get("min_vcpu_per_gpu") is not None else None,
             ports=list(data.get("ports", ["22/tcp"])),
+            relay_port=int(data.get("relay_port", 8765)),
             ssh_user=data.get("ssh_user", "root"),
             remote_base_dir=data.get("remote_base_dir", "/root/autoresearch"),
             prepare_num_shards=int(data.get("prepare_num_shards", 10)),
@@ -354,6 +377,21 @@ class ExecutionPaths:
     logs_dir: Path
     artifacts_dir: Path
     reports_dir: Path
+
+
+@dataclass
+class PodSession:
+    client: "RunpodClient"
+    pod_id: str
+    conn: SSHConnection
+    remote_repo_dir: str
+    gpu_type_ids: list[str]
+    gpu_type_priority: str
+    payload: dict[str, Any]
+    created_pod: dict[str, Any]
+    ready_pod: dict[str, Any]
+    selected_gpu_type: str | None = None
+    gpu_candidates: Any | None = None
 
 
 class RunpodClient:
@@ -498,6 +536,12 @@ def write_json(path: Path, data: Any) -> None:
     path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
 
 
+def read_json(path: Path) -> Any | None:
+    if not path.exists():
+        return None
+    return json.loads(path.read_text())
+
+
 def append_jsonl(path: Path, data: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a") as fh:
@@ -523,6 +567,60 @@ def profile_name(profile_id: int | None) -> str | None:
     if profile_id is None:
         return None
     return get_profile_preset(profile_id).name
+
+
+def write_execution_metadata(paths: ExecutionPaths, cfg: RunpodConfig, *, branch: str, experiment_index: int) -> None:
+    write_json(paths.metadata_dir / "config.effective.json", cfg.redacted())
+    write_json(
+        paths.metadata_dir / "git-branch.json",
+        {
+            "branch": branch,
+            "experiment_index": experiment_index,
+        },
+    )
+
+
+def write_gpu_selection_metadata(
+    paths: ExecutionPaths,
+    cfg: RunpodConfig,
+    *,
+    gpu_type_ids: list[str],
+    gpu_type_priority: str,
+) -> None:
+    write_json(
+        paths.metadata_dir / "gpu-selection.json",
+        {
+            "profile": cfg.profile,
+            "profile_name": profile_name(cfg.profile),
+            "gpu_type_ids": gpu_type_ids,
+            "gpu_type_priority": gpu_type_priority,
+        },
+    )
+    if cfg.profile is not None:
+        write_json(paths.metadata_dir / "profile.json", asdict(get_profile_preset(cfg.profile)))
+
+
+def write_pod_session_metadata(paths: ExecutionPaths, cfg: RunpodConfig, pod_session: PodSession) -> None:
+    write_gpu_selection_metadata(
+        paths,
+        cfg,
+        gpu_type_ids=pod_session.gpu_type_ids,
+        gpu_type_priority=pod_session.gpu_type_priority,
+    )
+    if pod_session.gpu_candidates is not None:
+        write_json(paths.metadata_dir / "gpu-candidates.json", pod_session.gpu_candidates)
+    write_json(paths.metadata_dir / "pod-create-request.json", pod_session.payload)
+    write_json(paths.metadata_dir / "pod-created.json", pod_session.created_pod)
+    write_json(paths.metadata_dir / "pod-ready.json", pod_session.ready_pod)
+    write_json(
+        paths.metadata_dir / "pod-session.json",
+        {
+            "pod_id": pod_session.pod_id,
+            "remote_repo_dir": pod_session.remote_repo_dir,
+            "selected_gpu_type": pod_session.selected_gpu_type,
+        },
+    )
+    append_jsonl(paths.metadata_dir / "pod-status-history.ndjson", {"timestamp": iso_now(), "pod": pod_session.ready_pod})
 
 
 def write_tracked_reports(
@@ -557,6 +655,63 @@ def write_tracked_reports(
             "metrics": summary,
         },
     )
+
+
+def build_live_state_payload(
+    *,
+    session_id: str,
+    branch: str,
+    runner_mode: str,
+    phase: str,
+    status: str,
+    experiment_index: int,
+    experiment_count: int,
+    iteration_label: str,
+    execution_dir: Path | None,
+    run_log_path: Path | None,
+    telemetry_events_path: Path | None = None,
+    relay_state_path: Path | None = None,
+    relay_ws_url: str | None = None,
+    prepare_manifest: dict[str, Any] | None = None,
+    reflect_manifest: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return {
+        "schema_version": 1,
+        "session_id": session_id,
+        "branch": branch,
+        "runner_mode": runner_mode,
+        "is_active": status not in {"completed", "failed", "aborted"},
+        "phase": phase,
+        "status": status,
+        "experiment_index": experiment_index,
+        "experiment_count": experiment_count,
+        "current_iteration_label": iteration_label,
+        "execution_id": execution_dir.name if execution_dir is not None else None,
+        "execution_dir": str(execution_dir) if execution_dir is not None else None,
+        "run_log_path": str(run_log_path) if run_log_path is not None else None,
+        "telemetry_events_path": str(telemetry_events_path) if telemetry_events_path is not None else None,
+        "relay_state_path": str(relay_state_path) if relay_state_path is not None else None,
+        "relay_ws_url": relay_ws_url,
+        "prepare": prepare_manifest,
+        "reflect": reflect_manifest,
+        "updated_at": iso_now(),
+    }
+
+
+def effective_ports(cfg: RunpodConfig) -> list[str]:
+    ports = list(cfg.ports)
+    relay_port_spec = f"{cfg.relay_port}/tcp"
+    if relay_port_spec not in ports:
+        ports.append(relay_port_spec)
+    return ports
+
+
+def effective_artifacts(artifacts: list[str]) -> list[str]:
+    merged: list[str] = []
+    for rel_path in [*artifacts, REMOTE_LIVE_INPUT, REMOTE_LIVE_EVENTS, REMOTE_LIVE_STATE, REMOTE_LIVE_LOG]:
+        if rel_path not in merged:
+            merged.append(rel_path)
+    return merged
 
 
 def ssh_base_args(conn: SSHConnection) -> list[str]:
@@ -795,7 +950,7 @@ if [ -d "$repo_dir/.git" ]; then
   git -C "$repo_dir" fetch origin "$branch_name"
   git -C "$repo_dir" checkout -B "$branch_name" FETCH_HEAD
   git -C "$repo_dir" reset --hard FETCH_HEAD
-  git -C "$repo_dir" clean -fd
+  git -C "$repo_dir" clean -fd -e .venv/
 else
   rm -rf "$repo_dir"
   git clone --branch "$branch_name" "$repo_url" "$repo_dir"
@@ -1124,7 +1279,7 @@ def build_create_payload(cfg: RunpodConfig, execution_name: str, gpu_type_ids: l
         "interruptible": cfg.interruptible,
         "supportPublicIp": cfg.support_public_ip,
         "containerDiskInGb": cfg.container_disk_gb,
-        "ports": cfg.ports,
+        "ports": effective_ports(cfg),
     }
     if gpu_type_ids:
         payload["gpuTypeIds"] = gpu_type_ids
@@ -1198,6 +1353,54 @@ def wait_for_ssh(conn: SSHConnection, cfg: RunpodConfig) -> None:
     raise TimeoutError(f"Timed out waiting for SSH on {conn.host}:{conn.port}")
 
 
+def create_pod_session(
+    cfg: RunpodConfig,
+    *,
+    branch: str,
+    execution_name: str,
+    paths: ExecutionPaths,
+    log_path: Path,
+) -> PodSession:
+    client = RunpodClient(cfg.api_key)
+    gpu_type_ids, gpu_type_priority = resolve_gpu_selection(client, cfg, paths)
+    write_gpu_selection_metadata(
+        paths,
+        cfg,
+        gpu_type_ids=gpu_type_ids,
+        gpu_type_priority=gpu_type_priority,
+    )
+    payload = build_create_payload(cfg, execution_name, gpu_type_ids, gpu_type_priority)
+    write_json(paths.metadata_dir / "pod-create-request.json", payload)
+    append_log(log_path, "creating shared pod for batch")
+    pod = client.create_pod(payload)
+    write_json(paths.metadata_dir / "pod-created.json", pod)
+    pod_id = str(pod["id"])
+    selected_gpu_type = (pod.get("machine") or {}).get("gpuTypeId")
+    append_log(log_path, f"pod_id={pod_id}")
+
+    append_log(log_path, "waiting for pod to expose SSH")
+    ready_pod, conn = wait_for_pod_ready(client, pod_id, cfg, paths)
+    selected_gpu_type = (ready_pod.get("machine") or {}).get("gpuTypeId") or selected_gpu_type
+    append_log(log_path, f"pod public_ip={conn.host} ssh_port={conn.port}")
+
+    append_log(log_path, "waiting for SSH to accept connections")
+    wait_for_ssh(conn, cfg)
+
+    return PodSession(
+        client=client,
+        pod_id=pod_id,
+        conn=conn,
+        remote_repo_dir=posixpath.join(cfg.remote_base_dir, "branches", slugify(branch)),
+        gpu_type_ids=gpu_type_ids,
+        gpu_type_priority=gpu_type_priority,
+        payload=payload,
+        created_pod=pod,
+        ready_pod=ready_pod,
+        selected_gpu_type=selected_gpu_type,
+        gpu_candidates=read_json(paths.metadata_dir / "gpu-candidates.json"),
+    )
+
+
 def bootstrap_remote(conn: SSHConnection, cfg: RunpodConfig, remote_repo_dir: str, log_path: Path) -> None:
     script = f"""
 set -euo pipefail
@@ -1239,13 +1442,40 @@ fi
         subprocess.run(cmd, input=script, text=True, check=True, stdout=fh, stderr=subprocess.STDOUT)
 
 
-def write_remote_run_script(paths: ExecutionPaths, remote_repo_dir: str, run_command: str) -> Path:
+def write_remote_run_script(
+    paths: ExecutionPaths,
+    remote_repo_dir: str,
+    run_command: str,
+    *,
+    cfg: RunpodConfig,
+    branch: str,
+    session_id: str,
+) -> Path:
     local_script = paths.metadata_dir / "remote_execute.sh"
+    remote_live_input = posixpath.join(remote_repo_dir, REMOTE_LIVE_INPUT)
+    remote_live_events = posixpath.join(remote_repo_dir, REMOTE_LIVE_EVENTS)
+    remote_live_state = posixpath.join(remote_repo_dir, REMOTE_LIVE_STATE)
+    remote_live_log = posixpath.join(remote_repo_dir, REMOTE_LIVE_LOG)
     local_script.write_text(
         "#!/usr/bin/env bash\n"
         "set -euo pipefail\n"
         f"cd {json.dumps(remote_repo_dir)}\n"
         "export PATH=\"$(pwd)/.venv/bin:$HOME/.local/bin:$HOME/.cargo/bin:$PATH\"\n"
+        "mkdir -p live\n"
+        f"rm -f {json.dumps(REMOTE_LIVE_INPUT)} {json.dumps(REMOTE_LIVE_EVENTS)} {json.dumps(REMOTE_LIVE_STATE)} {json.dumps(REMOTE_LIVE_LOG)}\n"
+        f"export AUTORESEARCH_LIVE_EVENTS_PATH={json.dumps(remote_live_input)}\n"
+        f"export AUTORESEARCH_SESSION_ID={json.dumps(session_id)}\n"
+        f"export AUTORESEARCH_BRANCH={json.dumps(branch)}\n"
+        f"export AUTORESEARCH_EXECUTION_ID={json.dumps(paths.execution_dir.name)}\n"
+        f".venv/bin/python scripts/pod_live_relay.py --input {shlex.quote(remote_live_input)} --output {shlex.quote(remote_live_events)} --state {shlex.quote(remote_live_state)} --log {shlex.quote(remote_live_log)} --port {cfg.relay_port} > {shlex.quote(remote_live_log)} 2>&1 &\n"
+        "relay_pid=$!\n"
+        "cleanup() {\n"
+        "  if [ -n \"${relay_pid:-}\" ]; then\n"
+        "    kill \"$relay_pid\" >/dev/null 2>&1 || true\n"
+        "    wait \"$relay_pid\" >/dev/null 2>&1 || true\n"
+        "  fi\n"
+        "}\n"
+        "trap cleanup EXIT\n"
         "rm -f .run.exitcode\n"
         "status=0\n"
         f"{run_command} || status=$?\n"
@@ -1282,7 +1512,7 @@ echo $! > .run.pid
 
 def collect_artifacts(conn: SSHConnection, remote_repo_dir: str, paths: ExecutionPaths, artifacts: list[str]) -> None:
     seen: set[str] = set()
-    for rel_path in artifacts + EXTRA_REMOTE_FILES:
+    for rel_path in effective_artifacts(artifacts) + EXTRA_REMOTE_FILES:
         if rel_path in seen:
             continue
         seen.add(rel_path)
@@ -1339,116 +1569,247 @@ def terminate_pod(client: RunpodClient, pod_id: str, paths: ExecutionPaths) -> N
     write_json(paths.metadata_dir / "pod-terminated.json", response)
 
 
-def execute_once(
+def execute_on_pod(
     repo_root: Path,
     cfg: RunpodConfig,
     *,
+    session_log,
     branch: str,
     experiment_index: int,
+    experiment_count: int,
     iteration_log: IterationPaths,
-    keep_pod: bool,
-    execution_prefix: str | None = None,
-) -> tuple[int, ExecutionPaths]:
-    paths = make_execution_paths(repo_root, execution_prefix or cfg.name_prefix)
-    bind_execution(iteration_log, execution_dir=paths.execution_dir)
+    paths: ExecutionPaths,
+    pod_session: PodSession,
+    codex_cfg: CodexAgentConfig,
+    prepare_manifest: dict[str, Any] | None,
+) -> tuple[int, dict[str, str]]:
     log_path = paths.logs_dir / "orchestrator.log"
-    append_log(log_path, f"execution_dir={paths.execution_dir}")
-    append_log(log_path, f"experiment_branch={branch}")
-    write_json(paths.metadata_dir / "config.effective.json", cfg.redacted())
-    write_json(
-        paths.metadata_dir / "git-branch.json",
-        {
-            "branch": branch,
-            "experiment_index": experiment_index,
-        },
-    )
-    append_log(log_path, "pushing branch before pod deployment")
-    push_repo(repo_root, log_path, cfg.repo_push_target, cfg.ssh_private_key)
-
-    execution_name = f"{cfg.name_prefix}-{paths.execution_dir.name}"
-    remote_repo_dir = posixpath.join(cfg.remote_base_dir, "executions", paths.execution_dir.name)
-    client = RunpodClient(cfg.api_key)
-    pod_id = ""
-    selected_gpu_type: str | None = None
     exit_code: int | None = None
     summary: dict[str, str] = {}
     finalized_iteration = False
+    telemetry_events_path = paths.artifacts_dir / REMOTE_LIVE_EVENTS
+    relay_state_path = paths.artifacts_dir / REMOTE_LIVE_STATE
+    relay_ws_url = f"ws://{pod_session.conn.host}:{cfg.relay_port}"
     try:
-        gpu_type_ids, gpu_type_priority = resolve_gpu_selection(client, cfg, paths)
-        write_json(
-            paths.metadata_dir / "gpu-selection.json",
+        write_live_state(
+            session_log,
+            build_live_state_payload(
+                session_id=session_log.session_id,
+                branch=branch,
+                runner_mode="runpod",
+                phase="deploy",
+                status="deploying",
+                experiment_index=experiment_index,
+                experiment_count=experiment_count,
+                iteration_label=iteration_log.iteration_label,
+                execution_dir=paths.execution_dir,
+                run_log_path=paths.artifacts_dir / "run.log",
+                telemetry_events_path=telemetry_events_path,
+                relay_state_path=relay_state_path,
+                prepare_manifest=prepare_manifest,
+            ),
+        )
+        append_live_event(
+            session_log,
             {
-                "profile": cfg.profile,
-                "profile_name": profile_name(cfg.profile),
-                "gpu_type_ids": gpu_type_ids,
-                "gpu_type_priority": gpu_type_priority,
+                "timestamp": iso_now(),
+                "type": "deploy_started",
+                "iteration_label": iteration_log.iteration_label,
+                "experiment_index": experiment_index,
             },
         )
-        if cfg.profile is not None:
-            write_json(paths.metadata_dir / "profile.json", asdict(get_profile_preset(cfg.profile)))
-        payload = build_create_payload(cfg, execution_name, gpu_type_ids, gpu_type_priority)
-        write_json(paths.metadata_dir / "pod-create-request.json", payload)
-        append_log(log_path, "creating pod")
-        pod = client.create_pod(payload)
-        write_json(paths.metadata_dir / "pod-created.json", pod)
-        pod_id = str(pod["id"])
-        selected_gpu_type = ((pod.get("machine") or {}).get("gpuTypeId")) or selected_gpu_type
-        append_log(log_path, f"pod_id={pod_id}")
-
-        append_log(log_path, "waiting for pod to expose SSH")
-        pod, conn = wait_for_pod_ready(client, pod_id, cfg, paths)
-        selected_gpu_type = ((pod.get("machine") or {}).get("gpuTypeId")) or selected_gpu_type
-        append_log(log_path, f"pod public_ip={conn.host} ssh_port={conn.port}")
-
-        append_log(log_path, "waiting for SSH to accept connections")
-        wait_for_ssh(conn, cfg)
-
-        append_log(log_path, "deploying git clone to pod")
+        append_log(log_path, "syncing git checkout on shared pod")
         deploy_clone_to_remote(
             repo_root,
-            conn,
-            remote_repo_dir,
+            pod_session.conn,
+            pod_session.remote_repo_dir,
             branch,
             cfg.repo_url,
         )
 
         append_log(log_path, "bootstrapping remote environment")
-        bootstrap_remote(conn, cfg, remote_repo_dir, paths.logs_dir / "bootstrap.log")
+        bootstrap_remote(pod_session.conn, cfg, pod_session.remote_repo_dir, paths.logs_dir / "bootstrap.log")
 
         append_log(log_path, "starting remote run")
-        local_script = write_remote_run_script(paths, remote_repo_dir, cfg.run_command)
-        start_remote_run(conn, remote_repo_dir, local_script)
+        local_script = write_remote_run_script(
+            paths,
+            pod_session.remote_repo_dir,
+            cfg.run_command,
+            cfg=cfg,
+            branch=branch,
+            session_id=session_log.session_id,
+        )
+        start_remote_run(pod_session.conn, pod_session.remote_repo_dir, local_script)
+        write_live_state(
+            session_log,
+            build_live_state_payload(
+                session_id=session_log.session_id,
+                branch=branch,
+                runner_mode="runpod",
+                phase="train",
+                status="running",
+                experiment_index=experiment_index,
+                experiment_count=experiment_count,
+                iteration_label=iteration_log.iteration_label,
+                execution_dir=paths.execution_dir,
+                run_log_path=paths.artifacts_dir / "run.log",
+                telemetry_events_path=telemetry_events_path,
+                relay_state_path=relay_state_path,
+                relay_ws_url=relay_ws_url,
+                prepare_manifest=prepare_manifest,
+            ),
+        )
+        append_live_event(
+            session_log,
+            {
+                "timestamp": iso_now(),
+                "type": "train_started",
+                "iteration_label": iteration_log.iteration_label,
+                "execution_id": paths.execution_dir.name,
+            },
+        )
 
         append_log(log_path, "monitoring remote run")
-        exit_code = monitor_run(client, pod_id, conn, cfg, remote_repo_dir, paths)
+        exit_code = monitor_run(
+            pod_session.client,
+            pod_session.pod_id,
+            pod_session.conn,
+            cfg,
+            pod_session.remote_repo_dir,
+            paths,
+        )
         append_log(log_path, f"remote run exit_code={exit_code}")
 
-        collect_artifacts(conn, remote_repo_dir, paths, cfg.collect_artifacts)
-        sync_remote_train_py_to_local(conn, remote_repo_dir, repo_root)
+        collect_artifacts(pod_session.conn, pod_session.remote_repo_dir, paths, cfg.collect_artifacts)
+        sync_remote_train_py_to_local(pod_session.conn, pod_session.remote_repo_dir, repo_root)
         snapshot_tested_train_py(
             iteration_log,
             repo_root=repo_root,
             train_py_path=repo_root / "train.py",
             parent_commit=iteration_log.parent_commit,
         )
+        summary = parse_summary(paths.artifacts_dir / "run.log")
+        write_json(paths.metadata_dir / "summary.json", summary)
+        append_log(log_path, "running Codex reflect phase")
+        write_live_state(
+            session_log,
+            build_live_state_payload(
+                session_id=session_log.session_id,
+                branch=branch,
+                runner_mode="runpod",
+                phase="reflect",
+                status="reflecting",
+                experiment_index=experiment_index,
+                experiment_count=experiment_count,
+                iteration_label=iteration_log.iteration_label,
+                execution_dir=paths.execution_dir,
+                run_log_path=paths.artifacts_dir / "run.log",
+                telemetry_events_path=telemetry_events_path,
+                relay_state_path=relay_state_path,
+                relay_ws_url=relay_ws_url,
+                prepare_manifest=prepare_manifest,
+            ),
+        )
+        append_live_event(
+            session_log,
+            {
+                "timestamp": iso_now(),
+                "type": "reflect_started",
+                "iteration_label": iteration_log.iteration_label,
+            },
+        )
+        reflect_before_snapshot = snapshot_phase_inputs(repo_root)
+        reflect_log_path, reflect_output_path = phase_output_paths(
+            repo_root=repo_root,
+            session_id=iteration_log.session.session_id,
+            experiment_index=iteration_log.iteration,
+            phase="reflect",
+        )
+        run_codex_phase(
+            repo_root=repo_root,
+            cfg=codex_cfg,
+            runner_mode="runpod",
+            branch=branch,
+            experiment_index=iteration_log.iteration,
+            phase="reflect",
+            log_path=reflect_log_path,
+            output_path=reflect_output_path,
+            run_log_path=paths.artifacts_dir / "run.log",
+            summary_path=paths.metadata_dir / "summary.json",
+            execution_dir=paths.execution_dir,
+        )
+        reflect_live_dir = live_phase_dir(session_log, iteration_label=iteration_log.iteration_label, phase="reflect")
+        reflect_manifest = capture_codex_phase_artifacts(
+            repo_root=repo_root,
+            before_snapshot=reflect_before_snapshot,
+            phase="reflect",
+            phase_dir=reflect_live_dir,
+            log_path=reflect_log_path,
+            output_path=reflect_output_path,
+        )
+        bind_codex_phase_artifacts(iteration_log, phase="reflect", source_dir=reflect_live_dir)
         capture_dialectical_state(
             iteration_log,
             repo_root=repo_root,
             current_train_py_path=repo_root / "train.py",
             stage="result",
         )
-        summary = parse_summary(paths.artifacts_dir / "run.log")
-        write_json(paths.metadata_dir / "summary.json", summary)
-        final_pod = client.get_pod(pod_id)
+        reflected_result = read_json(iteration_log.result_path) or {}
+        reflected_transcendent = reflected_result.get("transcendent_result") or {}
+        write_live_state(
+            session_log,
+            build_live_state_payload(
+                session_id=session_log.session_id,
+                branch=branch,
+                runner_mode="runpod",
+                phase="reflect_complete",
+                status="reflect_complete",
+                experiment_index=experiment_index,
+                experiment_count=experiment_count,
+                iteration_label=iteration_log.iteration_label,
+                execution_dir=paths.execution_dir,
+                run_log_path=paths.artifacts_dir / "run.log",
+                telemetry_events_path=telemetry_events_path,
+                relay_state_path=relay_state_path,
+                relay_ws_url=relay_ws_url,
+                prepare_manifest=prepare_manifest,
+                reflect_manifest=reflect_manifest,
+            ),
+        )
+        append_live_event(
+            session_log,
+            {
+                "timestamp": iso_now(),
+                "type": "reflection_completed",
+                "iteration_label": iteration_log.iteration_label,
+                "experiment_index": experiment_index,
+                "runner_phase": "reflect_complete",
+                "outcome": reflected_result.get("outcome"),
+                "contradicted_assumption": reflected_result.get("contradicted_assumption"),
+                "keep_discard_status": reflected_result.get("keep_discard_status"),
+                "framing_diagnosis": reflected_result.get("framing_diagnosis"),
+                "next_move_type": reflected_result.get("next_move_type"),
+                "reflect_changes": {
+                    "modified_files": reflect_manifest.get("modified_files", []),
+                    "summary": reflect_manifest.get("summary"),
+                },
+                "transcendent_result": {
+                    "result_status": reflected_transcendent.get("result_status"),
+                    "emergent_thought": reflected_transcendent.get("emergent_thought"),
+                },
+            },
+        )
+        final_pod = pod_session.client.get_pod(pod_session.pod_id)
         write_json(paths.metadata_dir / "pod-final.json", final_pod)
+        pod_session.selected_gpu_type = ((final_pod.get("machine") or {}).get("gpuTypeId")) or pod_session.selected_gpu_type
         write_tracked_reports(
             paths,
             branch=branch,
             experiment_index=experiment_index,
             cfg=cfg,
-            gpu_type_ids=gpu_type_ids,
-            gpu_type_priority=gpu_type_priority,
-            selected_gpu_type=((final_pod.get("machine") or {}).get("gpuTypeId")) or selected_gpu_type,
+            gpu_type_ids=pod_session.gpu_type_ids,
+            gpu_type_priority=pod_session.gpu_type_priority,
+            selected_gpu_type=pod_session.selected_gpu_type,
             cost_per_hr=final_pod.get("costPerHr"),
             exit_code=exit_code,
             summary=summary,
@@ -1456,6 +1817,8 @@ def execute_once(
         capture_execution_artifacts(
             iteration_log,
             run_log_path=paths.reports_dir / "run.log",
+            telemetry_events_path=telemetry_events_path,
+            relay_state_path=relay_state_path,
             summary=summary,
             run_metadata=json.loads((paths.reports_dir / "run-metadata.json").read_text())
             if (paths.reports_dir / "run-metadata.json").exists()
@@ -1480,8 +1843,28 @@ def execute_once(
         )
         if post_commit is not None:
             append_log(log_path, f"committed post-run changes: {post_commit}")
+        write_live_state(
+            session_log,
+            build_live_state_payload(
+                session_id=session_log.session_id,
+                branch=branch,
+                runner_mode="runpod",
+                phase="commit",
+                status="committing",
+                experiment_index=experiment_index,
+                experiment_count=experiment_count,
+                iteration_label=iteration_log.iteration_label,
+                execution_dir=paths.execution_dir,
+                run_log_path=paths.artifacts_dir / "run.log",
+                telemetry_events_path=telemetry_events_path,
+                relay_state_path=relay_state_path,
+                relay_ws_url=relay_ws_url,
+                prepare_manifest=prepare_manifest,
+                reflect_manifest=reflect_manifest,
+            ),
+        )
         push_repo(repo_root, log_path, cfg.repo_push_target, cfg.ssh_private_key)
-        return exit_code, paths
+        return exit_code, summary
     finally:
         if not finalized_iteration:
             capture_dialectical_state(
@@ -1496,12 +1879,6 @@ def execute_once(
                 summary=summary,
                 status="failed",
             )
-        if pod_id and not keep_pod:
-            append_log(log_path, "terminating pod")
-            try:
-                terminate_pod(client, pod_id, paths)
-            except Exception as exc:  # pragma: no cover - best effort cleanup
-                append_log(log_path, f"pod termination failed: {exc}")
 
 
 def execute(args: argparse.Namespace) -> int:
@@ -1510,83 +1887,211 @@ def execute(args: argparse.Namespace) -> int:
         ensure_tool(tool)
 
     config_path = (repo_root / args.config).resolve()
-    base_cfg = RunpodConfig.from_sources(config_path, repo_root)
-    experiment_count = base_cfg.experiment_count
+    cfg = RunpodConfig.from_sources(config_path, repo_root)
+    codex_cfg = load_codex_agent_config(repo_root)
+    ensure_codex_available(codex_cfg)
+    experiment_count = cfg.experiment_count
     branch = ensure_experiment_branch(repo_root)
     session_log = ensure_session_log(repo_root, branch=branch, runner_mode="runpod")
 
     batch_records: list[dict[str, Any]] = []
     batch_summary_path: Path | None = None
     if experiment_count > 1:
-        batch_summary_dir = repo_root / "runpod_runs" / f"{timestamp_slug()}-{slugify(base_cfg.name_prefix)}-batch"
+        batch_summary_dir = repo_root / "runpod_runs" / f"{timestamp_slug()}-{slugify(cfg.name_prefix)}-batch"
         batch_reports_dir = batch_summary_dir / "reports"
         batch_reports_dir.mkdir(parents=True, exist_ok=True)
         batch_summary_path = batch_reports_dir / "batch-summary.json"
 
     final_exit_code = 0
-    for experiment_index in range(1, experiment_count + 1):
-        cfg = RunpodConfig.from_sources(config_path, repo_root)
-        parent_commit = git_stdout(repo_root, ["rev-parse", "--short", "HEAD"])
-        pre_commit = commit_nonignored_changes(
-            repo_root,
-            f"experiment {experiment_index:03d}: prepare Runpod deployment on {branch}",
-        )
-        if pre_commit is not None:
-            print(f"committed local changes before Runpod run: {pre_commit}")
-        candidate_commit = git_stdout(repo_root, ["rev-parse", "--short", "HEAD"])
-        iteration_log = start_iteration(
-            session_log,
-            runner_mode="runpod",
-            experiment_index=experiment_index,
-            parent_commit=parent_commit,
-            candidate_commit=candidate_commit,
-        )
-        snapshot_tested_train_py(
-            iteration_log,
-            repo_root=repo_root,
-            train_py_path=repo_root / "train.py",
-            parent_commit=iteration_log.parent_commit,
-        )
-        capture_dialectical_state(
-            iteration_log,
-            repo_root=repo_root,
-            current_train_py_path=repo_root / "train.py",
-            stage="plan",
-        )
-        execution_prefix = cfg.name_prefix
-        if experiment_count > 1:
-            execution_prefix = f"{cfg.name_prefix}-exp{experiment_index:02d}"
-        print(f"starting experiment {experiment_index}/{experiment_count}")
-        exit_code, paths = execute_once(
-            repo_root,
-            cfg,
-            branch=branch,
-            experiment_index=experiment_index,
-            iteration_log=iteration_log,
-            keep_pod=args.keep_pod,
-            execution_prefix=execution_prefix,
-        )
-        record = {
-            "experiment_index": experiment_index,
-            "execution_dir": str(paths.execution_dir),
-            "exit_code": exit_code,
-            "summary": parse_summary(paths.artifacts_dir / "run.log"),
-        }
-        batch_records.append(record)
-        if batch_summary_path is not None:
-            write_json(
-                batch_summary_path,
+    pod_session: PodSession | None = None
+    last_paths: ExecutionPaths | None = None
+    shared_pod_name = f"{cfg.name_prefix}-{timestamp_slug()}-batch"
+    try:
+        for experiment_index in range(1, experiment_count + 1):
+            manifest = read_json(session_log.manifest_path)
+            baseline_run = not bool(manifest.get("iterations", []))
+            session_iteration = int(manifest.get("latest_iteration") or 0) + 1
+            iteration_label = f"{session_iteration:03d}"
+            write_live_state(
+                session_log,
+                build_live_state_payload(
+                    session_id=session_log.session_id,
+                    branch=branch,
+                    runner_mode="runpod",
+                    phase="prepare",
+                    status="preparing",
+                    experiment_index=experiment_index,
+                    experiment_count=experiment_count,
+                    iteration_label=iteration_label,
+                    execution_dir=None,
+                    run_log_path=None,
+                ),
+            )
+            append_live_event(
+                session_log,
                 {
-                    "branch": branch,
-                    "name_prefix": base_cfg.name_prefix,
+                    "timestamp": iso_now(),
+                    "type": "prepare_started",
+                    "iteration_label": iteration_label,
+                    "experiment_index": experiment_index,
                     "experiment_count": experiment_count,
-                    "completed_experiments": len(batch_records),
-                    "records": batch_records,
                 },
             )
-        if exit_code != 0:
-            final_exit_code = exit_code
-            break
+            prepare_log_path, prepare_output_path = phase_output_paths(
+                repo_root=repo_root,
+                session_id=session_log.session_id,
+                experiment_index=session_iteration,
+                phase="prepare",
+            )
+            prepare_before_snapshot = snapshot_phase_inputs(repo_root)
+            run_codex_phase(
+                repo_root=repo_root,
+                cfg=codex_cfg,
+                runner_mode="runpod",
+                branch=branch,
+                experiment_index=session_iteration,
+                phase="prepare",
+                log_path=prepare_log_path,
+                output_path=prepare_output_path,
+                baseline_run=baseline_run,
+            )
+            prepare_live_dir = live_phase_dir(session_log, iteration_label=iteration_label, phase="prepare")
+            prepare_manifest = capture_codex_phase_artifacts(
+                repo_root=repo_root,
+                before_snapshot=prepare_before_snapshot,
+                phase="prepare",
+                phase_dir=prepare_live_dir,
+                log_path=prepare_log_path,
+                output_path=prepare_output_path,
+            )
+            write_live_state(
+                session_log,
+                build_live_state_payload(
+                    session_id=session_log.session_id,
+                    branch=branch,
+                    runner_mode="runpod",
+                    phase="prepare_complete",
+                    status="prepared",
+                    experiment_index=experiment_index,
+                    experiment_count=experiment_count,
+                    iteration_label=iteration_label,
+                    execution_dir=None,
+                    run_log_path=None,
+                    prepare_manifest=prepare_manifest,
+                ),
+            )
+            append_live_event(
+                session_log,
+                {
+                    "timestamp": iso_now(),
+                    "type": "prepare_completed",
+                    "iteration_label": iteration_label,
+                    "modified_files": prepare_manifest.get("modified_files", []),
+                    "summary": prepare_manifest.get("summary"),
+                },
+            )
+            parent_commit = git_stdout(repo_root, ["rev-parse", "--short", "HEAD"])
+            pre_commit = commit_nonignored_changes(
+                repo_root,
+                f"experiment {experiment_index:03d}: prepare Runpod deployment on {branch}",
+            )
+            if pre_commit is not None:
+                print(f"committed local changes before Runpod run: {pre_commit}")
+            candidate_commit = git_stdout(repo_root, ["rev-parse", "--short", "HEAD"])
+            iteration_log = start_iteration(
+                session_log,
+                runner_mode="runpod",
+                experiment_index=experiment_index,
+                parent_commit=parent_commit,
+                candidate_commit=candidate_commit,
+            )
+            bind_codex_phase_artifacts(iteration_log, phase="prepare", source_dir=prepare_live_dir)
+            snapshot_tested_train_py(
+                iteration_log,
+                repo_root=repo_root,
+                train_py_path=repo_root / "train.py",
+                parent_commit=iteration_log.parent_commit,
+            )
+            capture_dialectical_state(
+                iteration_log,
+                repo_root=repo_root,
+                current_train_py_path=repo_root / "train.py",
+                stage="plan",
+            )
+            execution_prefix = cfg.name_prefix
+            if experiment_count > 1:
+                execution_prefix = f"{cfg.name_prefix}-exp{experiment_index:02d}"
+            paths = make_execution_paths(repo_root, execution_prefix)
+            last_paths = paths
+            bind_execution(iteration_log, execution_dir=paths.execution_dir)
+            log_path = paths.logs_dir / "orchestrator.log"
+            append_log(log_path, f"execution_dir={paths.execution_dir}")
+            append_log(log_path, f"experiment_branch={branch}")
+            write_execution_metadata(paths, cfg, branch=branch, experiment_index=experiment_index)
+            print(f"starting experiment {experiment_index}/{experiment_count}")
+            append_log(log_path, "pushing branch before pod deployment")
+            push_repo(repo_root, log_path, cfg.repo_push_target, cfg.ssh_private_key)
+
+            if pod_session is None:
+                pod_session = create_pod_session(
+                    cfg,
+                    branch=branch,
+                    execution_name=shared_pod_name,
+                    paths=paths,
+                    log_path=log_path,
+                )
+                write_pod_session_metadata(paths, cfg, pod_session)
+            else:
+                write_pod_session_metadata(paths, cfg, pod_session)
+                append_log(log_path, f"reusing pod_id={pod_session.pod_id}")
+                append_log(log_path, f"pod public_ip={pod_session.conn.host} ssh_port={pod_session.conn.port}")
+
+            exit_code, summary = execute_on_pod(
+                repo_root,
+                cfg,
+                session_log=session_log,
+                branch=branch,
+                experiment_index=experiment_index,
+                experiment_count=experiment_count,
+                iteration_log=iteration_log,
+                paths=paths,
+                pod_session=pod_session,
+                codex_cfg=codex_cfg,
+                prepare_manifest=prepare_manifest,
+            )
+            record = {
+                "experiment_index": experiment_index,
+                "execution_dir": str(paths.execution_dir),
+                "exit_code": exit_code,
+                "summary": summary,
+            }
+            batch_records.append(record)
+            if batch_summary_path is not None:
+                write_json(
+                    batch_summary_path,
+                    {
+                        "branch": branch,
+                        "name_prefix": cfg.name_prefix,
+                        "experiment_count": experiment_count,
+                        "completed_experiments": len(batch_records),
+                        "records": batch_records,
+                    },
+                )
+            if exit_code != 0:
+                final_exit_code = exit_code
+                break
+    finally:
+        if pod_session is not None and not args.keep_pod and last_paths is not None:
+            append_log(last_paths.logs_dir / "orchestrator.log", "terminating shared pod")
+            try:
+                terminate_pod(pod_session.client, pod_session.pod_id, last_paths)
+            except Exception as exc:  # pragma: no cover - best effort cleanup
+                append_log(last_paths.logs_dir / "orchestrator.log", f"pod termination failed: {exc}")
+        clear_live_state(
+            session_log,
+            final_phase="completed" if final_exit_code == 0 else "failed",
+            status="completed" if final_exit_code == 0 else "failed",
+        )
 
     return final_exit_code
 
@@ -1595,7 +2100,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    execute_parser = subparsers.add_parser("execute", help="Launch a Pod, run autoresearch, collect artifacts, terminate")
+    execute_parser = subparsers.add_parser("execute", help="Launch one Pod for a batch, run autoresearch, collect artifacts, terminate")
     execute_parser.add_argument(
         "--config",
         default=DEFAULT_CONFIG_PATH,
@@ -1604,7 +2109,7 @@ def build_parser() -> argparse.ArgumentParser:
     execute_parser.add_argument(
         "--keep-pod",
         action="store_true",
-        help="Do not terminate the Pod after the run finishes",
+        help="Do not terminate the shared Pod after the batch finishes",
     )
     execute_parser.add_argument(
         "--profile",
@@ -1614,7 +2119,7 @@ def build_parser() -> argparse.ArgumentParser:
     execute_parser.add_argument(
         "--count",
         type=int,
-        help="Override the configured experiment count",
+        help="Override how many experiments to run on the same Pod",
     )
 
     resolve_parser = subparsers.add_parser("resolve-gpu", help="Resolve and print the currently best Runpod GPU candidates")

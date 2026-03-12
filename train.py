@@ -9,6 +9,7 @@ os.environ["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
 
 import gc
+import json
 import math
 import time
 from dataclasses import dataclass, asdict
@@ -47,6 +48,78 @@ if ATTENTION_BACKEND == "flash":
     flash_attn = get_kernel(repo).flash_attn_interface
 
 from prepare import MAX_SEQ_LEN, TIME_BUDGET, Tokenizer, make_dataloader, evaluate_bpb
+
+# ---------------------------------------------------------------------------
+# Live telemetry
+# ---------------------------------------------------------------------------
+
+def telemetry_now():
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+class LiveTelemetryEmitter:
+    def __init__(self):
+        self.path = os.environ.get("AUTORESEARCH_LIVE_EVENTS_PATH")
+        self.enabled = bool(self.path)
+        self.session_id = os.environ.get("AUTORESEARCH_SESSION_ID")
+        self.branch = os.environ.get("AUTORESEARCH_BRANCH")
+        self.execution_id = os.environ.get("AUTORESEARCH_EXECUTION_ID")
+        self._fh = None
+        self._seq = 0
+        self._last_train_step_emit = 0.0
+
+    def _open(self):
+        if not self.enabled or self._fh is not None:
+            return
+        parent = os.path.dirname(self.path)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+        self._fh = open(self.path, "a", buffering=1)
+
+    def emit(self, event_type, payload, *, throttle_seconds=None):
+        if not self.enabled:
+            return
+        now = time.time()
+        if throttle_seconds is not None and event_type == "train_step":
+            if now - self._last_train_step_emit < throttle_seconds:
+                return
+            self._last_train_step_emit = now
+        record = {
+            "type": event_type,
+            "timestamp": telemetry_now(),
+            "session_id": self.session_id,
+            "branch": self.branch,
+            "execution_id": self.execution_id,
+            **payload,
+        }
+        try:
+            self._open()
+            self._seq += 1
+            record["seq"] = self._seq
+            self._fh.write(json.dumps(record, sort_keys=True) + "\n")
+            self._fh.flush()
+        except Exception:
+            pass
+
+    def close(self):
+        if self._fh is None:
+            return
+        try:
+            self._fh.close()
+        except Exception:
+            pass
+        self._fh = None
+
+
+def current_cuda_metrics():
+    return {
+        "memory_allocated_mb": round(torch.cuda.memory_allocated() / 1024 / 1024, 1),
+        "memory_reserved_mb": round(torch.cuda.memory_reserved() / 1024 / 1024, 1),
+        "max_memory_allocated_mb": round(torch.cuda.max_memory_allocated() / 1024 / 1024, 1),
+    }
+
+
+live_telemetry = LiveTelemetryEmitter()
 
 # ---------------------------------------------------------------------------
 # GPT Model
@@ -568,6 +641,21 @@ x, y, epoch = next(train_loader)  # prefetch first batch
 
 print(f"Time budget: {TIME_BUDGET}s")
 print(f"Gradient accumulation steps: {grad_accum_steps}")
+live_telemetry.emit(
+    "run_started",
+    {
+        "runner_phase": "train",
+        "attention_backend": ATTENTION_BACKEND,
+        "time_budget_s": TIME_BUDGET,
+        "device_batch_size": DEVICE_BATCH_SIZE,
+        "total_batch_size": TOTAL_BATCH_SIZE,
+        "grad_accum_steps": grad_accum_steps,
+        "config": asdict(config),
+        "param_counts": {
+            "total": num_params,
+        },
+    },
+)
 
 # Schedules (all based on progress = training_time / TIME_BUDGET)
 
@@ -624,6 +712,15 @@ while True:
 
     # Fast fail: abort if loss is exploding or NaN
     if math.isnan(train_loss_f) or train_loss_f > 100:
+        live_telemetry.emit(
+            "run_failed",
+            {
+                "step": step,
+                "reason": "nan_or_exploding_loss",
+                "train_loss_raw": train_loss_f,
+            },
+        )
+        live_telemetry.close()
         print("FAIL")
         exit(1)
 
@@ -644,6 +741,27 @@ while True:
     remaining = max(0, TIME_BUDGET - total_training_time)
 
     print(f"\rstep {step:05d} ({pct_done:.1f}%) | loss: {debiased_smooth_loss:.6f} | lrm: {lrm:.2f} | dt: {dt*1000:.0f}ms | tok/sec: {tok_per_sec:,} | mfu: {mfu:.1f}% | epoch: {epoch} | remaining: {remaining:.0f}s    ", end="", flush=True)
+    live_telemetry.emit(
+        "train_step",
+        {
+            "step": step,
+            "epoch": epoch,
+            "progress_pct": round(pct_done, 1),
+            "training_seconds_elapsed": round(total_training_time, 1),
+            "remaining_seconds": round(remaining, 1),
+            "train_loss_raw": round(train_loss_f, 6),
+            "train_loss_ema": round(debiased_smooth_loss, 6),
+            "lr_multiplier": round(lrm, 4),
+            "muon_momentum": round(muon_momentum, 4),
+            "muon_weight_decay": round(muon_weight_decay, 4),
+            "step_dt_ms": round(dt * 1000, 1),
+            "tokens_per_second": tok_per_sec,
+            "mfu_percent_instant": round(mfu, 2),
+            "total_tokens_seen": (step + 1) * TOTAL_BATCH_SIZE,
+            "cuda": current_cuda_metrics(),
+        },
+        throttle_seconds=1.0,
+    )
 
     # GC management (Python's GC causes ~500ms stalls)
     if step == 0:
@@ -664,6 +782,13 @@ print()  # newline after \r training log
 total_tokens = step * TOTAL_BATCH_SIZE
 
 # Final eval
+live_telemetry.emit(
+    "eval_started",
+    {
+        "step": step,
+        "training_seconds_elapsed": round(total_training_time, 1),
+    },
+)
 model.eval()
 with autocast_ctx:
     val_bpb = evaluate_bpb(model, tokenizer, DEVICE_BATCH_SIZE)
@@ -684,3 +809,18 @@ print(f"total_tokens_M:   {total_tokens / 1e6:.1f}")
 print(f"num_steps:        {step}")
 print(f"num_params_M:     {num_params / 1e6:.1f}")
 print(f"depth:            {DEPTH}")
+live_telemetry.emit(
+    "run_summary",
+    {
+        "val_bpb": round(val_bpb, 6),
+        "training_seconds": round(total_training_time, 1),
+        "total_seconds": round(t_end - t_start, 1),
+        "peak_vram_mb": round(peak_vram_mb, 1),
+        "mfu_percent": round(steady_state_mfu, 2),
+        "total_tokens_M": round(total_tokens / 1e6, 1),
+        "num_steps": step,
+        "num_params_M": round(num_params / 1e6, 1),
+        "depth": DEPTH,
+    },
+)
+live_telemetry.close()

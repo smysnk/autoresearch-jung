@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { startTransition, useDeferredValue, useState } from "react";
+import { useRouter } from "next/navigation";
+import { startTransition, useDeferredValue, useEffect, useState } from "react";
 
 import {
   formatCompactNumber,
@@ -14,7 +15,16 @@ import {
   titleCase,
   truncateText,
 } from "@/lib/formatters";
-import type { CodeSnapshot, IterationNode, SessionGraph, TensionNode, TranscendentArtifact, VisualMode } from "@/lib/types";
+import type {
+  CodeSnapshot,
+  CodexPhaseArtifact,
+  IterationNode,
+  LiveReflectionState,
+  SessionGraph,
+  TensionNode,
+  TranscendentArtifact,
+  VisualMode,
+} from "@/lib/types";
 
 type SessionExplorerProps = {
   session: SessionGraph;
@@ -95,6 +105,38 @@ function summarizeExecution(iteration: IterationNode): string {
   return parts.join(" • ") || "No observable trace captured yet.";
 }
 
+function getCurrentRunProgress(session: SessionGraph): number {
+  const progress = session.live?.progress?.progressPct;
+  if (progress !== null && progress !== undefined) {
+    return Math.max(0, Math.min(100, progress));
+  }
+  switch (session.live?.phase) {
+    case "prepare":
+      return 2;
+    case "prepare_complete":
+      return 5;
+    case "deploy":
+      return 8;
+    case "reflect":
+      return 98;
+    case "reflect_complete":
+    case "commit":
+      return 100;
+    default:
+      return 100;
+  }
+}
+
+function getOverallProgress(session: SessionGraph, currentRunProgress: number): number {
+  const experimentIndex = session.live?.experimentIndex;
+  const experimentCount = session.live?.experimentCount;
+  if (!experimentIndex || !experimentCount) {
+    return 100;
+  }
+  const completedBeforeCurrent = Math.max(experimentIndex - 1, 0);
+  return Math.max(0, Math.min(100, ((completedBeforeCurrent + currentRunProgress / 100) / experimentCount) * 100));
+}
+
 function getSelectedTension(
   session: SessionGraph,
   selectedIteration: IterationNode,
@@ -147,18 +189,92 @@ function valueOrFallback(value: string | null | undefined, fallback = "Not yet c
   return value ?? fallback;
 }
 
+function getSessionCurrentIteration(session: SessionGraph): IterationNode | null {
+  if (session.live?.currentIterationLabel) {
+    const current = session.iterations.find((iteration) => iteration.label === session.live?.currentIterationLabel);
+    if (current) {
+      return current;
+    }
+  }
+  return session.iterations.at(-1) ?? null;
+}
+
+function getSessionStateKind(session: SessionGraph): "live" | "reconciled" | "historical" | "shadow" {
+  if (session.live?.isActive) {
+    return "live";
+  }
+  if (session.source !== "experiment_logs") {
+    return "shadow";
+  }
+  const current = getSessionCurrentIteration(session);
+  if (session.live?.currentIterationLabel && current?.label === session.live.currentIterationLabel) {
+    return "reconciled";
+  }
+  return "historical";
+}
+
+function getExecutionMetaString(iteration: IterationNode | null, key: string): string | null {
+  const metadata = iteration?.execution.metadata;
+  const value = metadata?.[key];
+  return typeof value === "string" && value ? value : null;
+}
+
+function SessionStateStrip({ session }: { session: SessionGraph }) {
+  const current = getSessionCurrentIteration(session);
+  const stateKind = getSessionStateKind(session);
+  const reading =
+    stateKind === "live"
+      ? `Streaming into moment ${current?.label ?? session.live?.currentIterationLabel ?? "?"}`
+      : stateKind === "reconciled"
+        ? `Reconciled into moment ${current?.label ?? session.live?.currentIterationLabel ?? "?"}`
+        : stateKind === "shadow"
+          ? "Fallback trace without canonical psyche"
+          : `Historical archive at moment ${current?.label ?? "?"}`;
+
+  return (
+    <section className="session-state-strip session-state-strip-wide">
+      <div>
+        <dt>State</dt>
+        <dd>{titleCase(stateKind)}</dd>
+      </div>
+      <div>
+        <dt>Moment</dt>
+        <dd>{current?.label ?? "n/a"}</dd>
+      </div>
+      <div>
+        <dt>Execution</dt>
+        <dd>{truncateText(session.live?.executionId ?? getExecutionMetaString(current, "execution_id"), 28)}</dd>
+      </div>
+      <div>
+        <dt>GPU</dt>
+        <dd>{truncateText(getExecutionMetaString(current, "selected_gpu_type"), 28)}</dd>
+      </div>
+      <div>
+        <dt>Signal</dt>
+        <dd>{formatMetric(current?.metrics.valBpb ?? null, 6)}</dd>
+      </div>
+      <div>
+        <dt>Reading</dt>
+        <dd>{truncateText(reading, 40)}</dd>
+      </div>
+    </section>
+  );
+}
+
 export function SessionExplorer({
   session,
   initialIterationLabel,
   initialMode = "chronicle",
   focusTensionId,
 }: SessionExplorerProps) {
-  const normalizedInitialIteration = normalizeIterationLabel(initialIterationLabel);
+  const router = useRouter();
+  const normalizedInitialIteration = normalizeIterationLabel(initialIterationLabel ?? session.live?.currentIterationLabel ?? undefined);
+  const latestIteration = session.iterations.at(-1) ?? null;
   const initialIteration =
     session.iterations.find(
       (iteration) =>
-        iteration.label === normalizedInitialIteration || String(iteration.iteration) === initialIterationLabel,
-    ) ?? session.iterations[0];
+        iteration.label === normalizedInitialIteration || String(iteration.iteration) === (initialIterationLabel ?? session.live?.currentIterationLabel),
+    ) ?? latestIteration ?? session.iterations[0];
   const [selectedIterationId, setSelectedIterationId] = useState(initialIteration?.id ?? "");
   const [activeMode, setActiveMode] = useState<VisualMode>(initialMode);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>("metrics");
@@ -168,6 +284,16 @@ export function SessionExplorer({
   const deferredIterationId = useDeferredValue(selectedIterationId);
   const selectedIteration =
     session.iterations.find((iteration) => iteration.id === deferredIterationId) ?? initialIteration ?? null;
+
+  useEffect(() => {
+    if (!session.live?.isActive) {
+      return;
+    }
+    const handle = window.setInterval(() => {
+      router.refresh();
+    }, 5000);
+    return () => window.clearInterval(handle);
+  }, [router, session.live?.isActive]);
 
   if (!selectedIteration) {
     return (
@@ -186,6 +312,7 @@ export function SessionExplorer({
 
   const selectedTension = getSelectedTension(session, selectedIteration, selectedTensionId);
   const mirror = getMirrorArtifact(session, selectedIteration, selectedTension);
+  const sessionStateKind = getSessionStateKind(session);
 
   return (
     <main className="page-shell explorer-shell">
@@ -228,6 +355,18 @@ export function SessionExplorer({
         </div>
 
         <div className="hero-metrics hero-metrics-wide">
+          <StatCard
+            label={sessionStateKind === "live" ? "Live state" : sessionStateKind === "reconciled" ? "Reconciled state" : "Archive state"}
+            value={sessionStateKind === "live" ? titleCase(session.live?.phase ?? null, "Running") : sessionStateKind === "reconciled" ? "Canonical sync" : "Historical"}
+            detail={
+              sessionStateKind === "live"
+                ? `Moment ${session.live?.currentIterationLabel ?? selectedIteration.label}`
+                : sessionStateKind === "reconciled"
+                  ? `Synced to moment ${getSessionCurrentIteration(session)?.label ?? selectedIteration.label}`
+                  : "Settled constellation"
+            }
+            tone={sessionStateKind === "live" ? "accent-antithesis" : sessionStateKind === "reconciled" ? "accent-synthesis" : "accent-neutral"}
+          />
           <StatCard label="Moments" value={String(session.stats.iterationCount)} detail={formatDateTime(session.updatedAt)} tone="accent-thesis" />
           <StatCard
             label="Best signal"
@@ -248,6 +387,8 @@ export function SessionExplorer({
             tone="accent-neutral"
           />
         </div>
+        <SessionStateStrip session={session} />
+        <LiveProgressPanel session={session} selectedIteration={selectedIteration} />
       </section>
 
       <section className="explorer-layout">
@@ -267,7 +408,9 @@ export function SessionExplorer({
               return (
                 <button
                   key={iteration.id}
-                  className={`rail-item ${isActive ? "rail-item-active" : ""}`}
+                  className={`rail-item ${isActive ? "rail-item-active" : ""} ${
+                    session.live?.isActive && session.live.currentIterationLabel === iteration.label ? "rail-item-live" : ""
+                  }`}
                   onClick={() => startTransition(() => setSelectedIterationId(iteration.id))}
                   type="button"
                 >
@@ -283,7 +426,11 @@ export function SessionExplorer({
                   </div>
                   <div className="rail-item-meta">
                     <span>{formatMetric(iteration.metrics.valBpb, 6)}</span>
-                    <span>{formatMemoryGb(iteration.metrics.peakVramMb)}</span>
+                    <span>
+                      {session.live?.isActive && session.live.currentIterationLabel === iteration.label
+                        ? `${Math.round(session.live.progress?.progressPct ?? 0)}% live`
+                        : formatMemoryGb(iteration.metrics.peakVramMb)}
+                    </span>
                   </div>
                 </button>
               );
@@ -432,6 +579,246 @@ function StatCard({
       <span className="metric-label">{label}</span>
       <strong>{value}</strong>
       <span className="metric-detail">{detail}</span>
+    </div>
+  );
+}
+
+function LiveProgressPanel({ session, selectedIteration }: { session: SessionGraph; selectedIteration: IterationNode }) {
+  const currentRunProgress = getCurrentRunProgress(session);
+  const overallProgress = getOverallProgress(session, currentRunProgress);
+
+  return (
+    <div className="live-progress-panel">
+      <div className="progress-row">
+        <div className="progress-copy">
+          <span className="progress-label">Current 5-minute vessel</span>
+          <strong>{Math.round(currentRunProgress)}%</strong>
+        </div>
+        <span className="progress-meta">
+          {session.live?.isActive
+            ? session.live.progress?.step !== null && session.live.progress?.step !== undefined
+              ? `Step ${session.live.progress.step} • ${session.live.progress.remainingSeconds ?? "?"}s remaining`
+              : titleCase(session.live.phase, "Preparing")
+            : `Moment ${selectedIteration.label} archived`}
+        </span>
+      </div>
+      <div className="progress-bar">
+        <span className="progress-fill" style={{ width: `${currentRunProgress}%` }} />
+      </div>
+
+      <div className="progress-row progress-row-compact">
+        <div className="progress-copy">
+          <span className="progress-label">Overall scope</span>
+          <strong>{Math.round(overallProgress)}%</strong>
+        </div>
+        <span className="progress-meta">
+          {session.live?.experimentIndex && session.live?.experimentCount
+            ? `Experiment ${session.live.experimentIndex}/${session.live.experimentCount}`
+            : `${session.stats.iterationCount} total moments`}
+        </span>
+      </div>
+      <div className="progress-bar progress-bar-subtle">
+        <span className="progress-fill progress-fill-scope" style={{ width: `${overallProgress}%` }} />
+      </div>
+      {session.live?.isActive && session.live.progress ? (
+        <dl className="live-metric-strip live-metric-strip-dense">
+          <div>
+            <dt>Loss</dt>
+            <dd>{formatMetric(session.live.progress.trainLoss, 4)}</dd>
+          </div>
+          <div>
+            <dt>Tok/s</dt>
+            <dd>{formatMetric(session.live.progress.tokensPerSecond, 0)}</dd>
+          </div>
+          <div>
+            <dt>MFU</dt>
+            <dd>{formatMetric(session.live.progress.mfuPercent, 1)}%</dd>
+          </div>
+          <div>
+            <dt>VRAM</dt>
+            <dd>{formatMemoryGb(session.live.progress.currentVramMb)}</dd>
+          </div>
+          <div>
+            <dt>GPU</dt>
+            <dd>{formatPercent(session.live.progress.gpuUtilPercent)}</dd>
+          </div>
+          <div>
+            <dt>Backend</dt>
+            <dd>{titleCase(session.live.attentionBackend, "pending")}</dd>
+          </div>
+          <div>
+            <dt>Depth</dt>
+            <dd>{formatMetric(session.live.depth, 0)}</dd>
+          </div>
+        </dl>
+      ) : null}
+      {session.live?.lastEventType === "eval_started" ? (
+        <p className="live-phase-note">Evaluating final BPB...</p>
+      ) : null}
+      {session.live?.lastEventType === "run_summary" && session.live?.progress && session.live.progress.valBpb !== null ? (
+        <p className="live-phase-note">
+          Final signal {formatMetric(session.live.progress.valBpb, 6)} captured. Awaiting reflection.
+        </p>
+      ) : null}
+      {session.live?.reflection ? (
+        <p className="live-phase-note">
+          Reflection landed as {titleCase(session.live.reflection.keepDiscardStatus, "Observed")} with{" "}
+          {titleCase(session.live.reflection.nextMoveType, "no next move")} next.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function isLiveIteration(session: SessionGraph, iteration: IterationNode): boolean {
+  return Boolean(session.live?.isActive && session.live.currentIterationLabel === iteration.label);
+}
+
+function liveReflectionForIteration(session: SessionGraph, iteration: IterationNode): LiveReflectionState | null {
+  if (!isLiveIteration(session, iteration)) {
+    return null;
+  }
+  return session.live?.reflection ?? null;
+}
+
+function getRelayGpuValue(source: Record<string, unknown> | null, key: string): number | null {
+  if (!source) {
+    return null;
+  }
+  const currentGpu = source.current_gpu;
+  if (!currentGpu || typeof currentGpu !== "object" || Array.isArray(currentGpu)) {
+    return null;
+  }
+  const value = (currentGpu as Record<string, unknown>)[key];
+  if (typeof value === "number") {
+    return value;
+  }
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function LiveGpuPanel({
+  session,
+  iteration,
+}: {
+  session: SessionGraph;
+  iteration: IterationNode;
+}) {
+  const live = isLiveIteration(session, iteration) ? session.live : null;
+  const relayState = iteration.execution.relayState ?? null;
+  const progress = live?.progress ?? null;
+  const allocated = progress?.currentVramMb ?? getRelayGpuValue(relayState, "memory_used_mb");
+  const reserved = progress?.reservedVramMb ?? null;
+  const peak = progress?.peakVramMb ?? null;
+  const gpuUtil = progress?.gpuUtilPercent ?? getRelayGpuValue(relayState, "util_percent");
+  const gpuMemUtil = progress?.gpuMemoryUtilPercent ?? getRelayGpuValue(relayState, "mem_util_percent");
+  const tempC = progress?.tempC ?? getRelayGpuValue(relayState, "temp_c");
+  const powerW = progress?.powerW ?? getRelayGpuValue(relayState, "power_w");
+
+  if ([allocated, reserved, peak, gpuUtil, gpuMemUtil, tempC, powerW].every((value) => value === null)) {
+    return null;
+  }
+
+  return (
+    <section className="panel-block">
+      <div className="panel-block-top">
+        <h3>GPU vessel</h3>
+        <span className="badge badge-outline">{live ? "Live" : "Archived"}</span>
+      </div>
+      <div className="note-grid inspector-metric-grid">
+        <MetricDatum label="Allocated" value={formatMemoryGb(allocated)} />
+        <MetricDatum label="Reserved" value={formatMemoryGb(reserved)} />
+        <MetricDatum label="Peak" value={formatMemoryGb(peak)} />
+        <MetricDatum label="GPU util" value={formatPercent(gpuUtil)} />
+        <MetricDatum label="Mem util" value={formatPercent(gpuMemUtil)} />
+        <MetricDatum label="Temp" value={tempC !== null ? `${tempC.toFixed(0)} C` : "n/a"} />
+        <MetricDatum label="Power" value={powerW !== null ? `${powerW.toFixed(0)} W` : "n/a"} />
+      </div>
+    </section>
+  );
+}
+
+function LiveReflectionPanel({ reflection }: { reflection: LiveReflectionState }) {
+  return (
+    <section className="panel-block">
+      <div className="panel-block-top">
+        <h3>Live reflected meaning</h3>
+        <span className="badge badge-live">Live</span>
+      </div>
+      <div className="note-grid">
+        <NarrativeCard title="Outcome" body={reflection.outcome} tone="accent-neutral" />
+        <NarrativeCard title="Framing diagnosis" body={reflection.framingDiagnosis} tone="accent-antithesis" />
+        <NarrativeCard title="Wounded assumption" body={reflection.contradictedAssumption} tone="accent-antithesis" />
+        <NarrativeCard title="Emergent thought" body={reflection.transcendentThought} tone="accent-synthesis" />
+      </div>
+      <dl className="detail-list compact-detail-list">
+        <div>
+          <dt>Integration status</dt>
+          <dd>{titleCase(reflection.keepDiscardStatus, "Not set")}</dd>
+        </div>
+        <div>
+          <dt>Next movement</dt>
+          <dd>{titleCase(reflection.nextMoveType, "Not set")}</dd>
+        </div>
+        <div>
+          <dt>Result status</dt>
+          <dd>{titleCase(reflection.resultStatus, "Not set")}</dd>
+        </div>
+        <div>
+          <dt>Modified files</dt>
+          <dd>{reflection.modifiedFiles.length ? reflection.modifiedFiles.join(", ") : "No file changes captured"}</dd>
+        </div>
+      </dl>
+    </section>
+  );
+}
+
+function summarizePatch(snapshot: CodeSnapshot): { additions: number; deletions: number } {
+  let additions = 0;
+  let deletions = 0;
+  for (const line of (snapshot.content ?? "").split("\n")) {
+    if (line.startsWith("+++ ") || line.startsWith("--- ")) {
+      continue;
+    }
+    if (line.startsWith("+")) {
+      additions += 1;
+    } else if (line.startsWith("-")) {
+      deletions += 1;
+    }
+  }
+  return { additions, deletions };
+}
+
+function CompactPatchViewer({ phaseArtifact }: { phaseArtifact: CodexPhaseArtifact }) {
+  if (!phaseArtifact.patches.length) {
+    return null;
+  }
+
+  return (
+    <div className="patch-stack">
+      {phaseArtifact.patches.map((patch) => {
+        const stats = summarizePatch(patch);
+        return (
+          <details key={patch.path ?? patch.label} className="patch-drawer">
+            <summary className="patch-summary">
+              <span className="patch-summary-copy">
+                <strong>{patch.path?.split("/").pop() ?? patch.label}</strong>
+                <span>{patch.path ?? "Patch artifact"}</span>
+              </span>
+              <span className="patch-summary-stats">
+                <span>+{stats.additions}</span>
+                <span>-{stats.deletions}</span>
+              </span>
+            </summary>
+            <pre className="code-frame code-frame-compact">
+              <code>{patch.content ?? "No patch contents captured."}</code>
+            </pre>
+          </details>
+        );
+      })}
     </div>
   );
 }
@@ -1182,6 +1569,7 @@ function InspectorPanel({
           <MetricDatum label="Params" value={iteration.metrics.numParamsM !== null ? `${formatCompactNumber(iteration.metrics.numParamsM)}M` : "n/a"} />
           <MetricDatum label="Depth" value={iteration.metrics.depth !== null ? String(iteration.metrics.depth) : "n/a"} />
         </div>
+        <LiveGpuPanel session={session} iteration={iteration} />
         <dl className="detail-list">
           <div>
             <dt>Attitude</dt>
@@ -1216,6 +1604,7 @@ function InspectorPanel({
     return (
       <div className="inspector-content">
         <NarrativeCard title="Foretelling" body={iteration.prediction} tone="accent-thesis" />
+        <CodexPhasePanel phaseArtifact={iteration.preparePhase} title="Prepare modifications" />
         <dl className="detail-list">
           <div>
             <dt>Parent commit</dt>
@@ -1236,9 +1625,12 @@ function InspectorPanel({
   }
 
   if (tab === "result") {
+    const reflection = liveReflectionForIteration(session, iteration);
     return (
       <div className="inspector-content">
         <NarrativeCard title="Integration" body={iteration.summaryText ?? iteration.outcome} tone="accent-neutral" />
+        {reflection ? <LiveReflectionPanel reflection={reflection} /> : null}
+        <CodexPhasePanel phaseArtifact={iteration.reflectPhase} title="Reflect modifications" />
         <dl className="detail-list">
           <div>
             <dt>Observed result</dt>
@@ -1351,6 +1743,8 @@ function InspectorPanel({
     <div className="inspector-content">
       <JsonPanel title="Trace summary" payload={iteration.execution.summary} />
       <JsonPanel title="Trace metadata" payload={iteration.execution.metadata} />
+      <JsonPanel title="Relay state" payload={iteration.execution.relayState} />
+      <CodePanel title="Structured live telemetry" snapshot={iteration.execution.liveEvents} compact />
       <CodePanel title="run.log" snapshot={iteration.execution.runLog} />
     </div>
   );
@@ -1379,6 +1773,65 @@ function MetricDatum({ label, value }: { label: string; value: string }) {
       <span className="metric-label">{label}</span>
       <strong>{value}</strong>
     </div>
+  );
+}
+
+function CodexPhasePanel({
+  phaseArtifact,
+  title,
+}: {
+  phaseArtifact: CodexPhaseArtifact | null;
+  title: string;
+}) {
+  if (!phaseArtifact) {
+    return null;
+  }
+
+  return (
+    <section className="panel-block">
+      <div className="panel-block-top">
+        <h3>{title}</h3>
+        <span className="badge badge-outline">{titleCase(phaseArtifact.phase)}</span>
+      </div>
+      <p className="muted">{valueOrFallback(phaseArtifact.summary, "No Codex summary captured.")}</p>
+      <dl className="detail-list compact-detail-list">
+        <div>
+          <dt>Modified files</dt>
+          <dd>{phaseArtifact.modifiedFiles.length ? phaseArtifact.modifiedFiles.join(", ") : "No file changes captured"}</dd>
+        </div>
+        <div>
+          <dt>Patch count</dt>
+          <dd>{String(phaseArtifact.patches.length)}</dd>
+        </div>
+      </dl>
+      <CompactPatchViewer phaseArtifact={phaseArtifact} />
+      {phaseArtifact.lastMessage ? (
+        <details className="patch-drawer">
+          <summary className="patch-summary">
+            <span className="patch-summary-copy">
+              <strong>Codex last message</strong>
+              <span>Phase narration</span>
+            </span>
+          </summary>
+          <pre className="code-frame code-frame-compact">
+            <code>{phaseArtifact.lastMessage.content ?? "No Codex summary captured."}</code>
+          </pre>
+        </details>
+      ) : null}
+      {phaseArtifact.stateSnapshot ? (
+        <details className="patch-drawer">
+          <summary className="patch-summary">
+            <span className="patch-summary-copy">
+              <strong>Staged iteration state</strong>
+              <span>{phaseArtifact.stateSnapshot.path ?? "current_iteration.json"}</span>
+            </span>
+          </summary>
+          <pre className="code-frame code-frame-compact">
+            <code>{phaseArtifact.stateSnapshot.content ?? "No iteration state captured."}</code>
+          </pre>
+        </details>
+      ) : null}
+    </section>
   );
 }
 
