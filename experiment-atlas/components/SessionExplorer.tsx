@@ -26,14 +26,14 @@ type SessionExplorerProps = {
 type InspectorTab = "metrics" | "plan" | "result" | "code" | "diff" | "tensions" | "transcendent" | "execution";
 
 const VIEW_OPTIONS: { id: VisualMode; label: string; description: string }[] = [
-  { id: "chronicle", label: "Chronicle", description: "Metric timeline and iteration narrative" },
-  { id: "braid", label: "Dialectic Braid", description: "Thesis / antithesis / synthesis movement" },
-  { id: "mirror", label: "Counterfactual Mirror", description: "Compare thesis, synthesis, and antithesis" },
-  { id: "constellation", label: "Tension Constellation", description: "Session tensions as a network around the selected run" },
-  { id: "stratigraphy", label: "Code Stratigraphy", description: "Code churn and outcomes as layered sediment" },
-  { id: "sankey", label: "Decision Sankey", description: "How moves flow into outcomes and next moves" },
-  { id: "genome", label: "Experiment Genome", description: "Dense glyph comparison across all iterations" },
-  { id: "filmstrip", label: "Narrative Filmstrip", description: "A compact storyboard of prediction, result, and contradiction" },
+  { id: "chronicle", label: "Individuation Chronicle", description: "Metric timeline and moment-by-moment narrative" },
+  { id: "braid", label: "Transcendent Braid", description: "Thesis / antithesis / synthesis movement" },
+  { id: "mirror", label: "Shadow Mirror", description: "Compare thesis, synthesis, and antithesis" },
+  { id: "constellation", label: "Complex Constellation", description: "Session complexes as a network around the selected moment" },
+  { id: "stratigraphy", label: "Archetype Stratigraphy", description: "Code churn and outcomes as layered sediment" },
+  { id: "sankey", label: "Libido Flow", description: "How attitudes move into outcomes and next movements" },
+  { id: "genome", label: "Archetype Genome", description: "Dense glyph comparison across all moments" },
+  { id: "filmstrip", label: "Dream Filmstrip", description: "A compact storyboard of foretelling, result, and dissonance" },
 ];
 
 const INSPECTOR_TABS: InspectorTab[] = [
@@ -46,6 +46,17 @@ const INSPECTOR_TABS: InspectorTab[] = [
   "transcendent",
   "execution",
 ];
+
+const INSPECTOR_TAB_LABELS: Record<InspectorTab, string> = {
+  metrics: "Metrics",
+  plan: "Plan",
+  result: "Integration",
+  code: "Embodied Code",
+  diff: "Patch",
+  tensions: "Complexes",
+  transcendent: "Transcendent",
+  execution: "Trace",
+};
 
 function normalizeIterationLabel(value: string | undefined): string | null {
   if (!value) {
@@ -76,12 +87,12 @@ function encodeQueryValue(value: string): string {
 
 function summarizeExecution(iteration: IterationNode): string {
   const parts = [
-    iteration.metrics.valBpb !== null ? `val_bpb ${formatMetric(iteration.metrics.valBpb, 6)}` : null,
+    iteration.metrics.valBpb !== null ? `signal ${formatMetric(iteration.metrics.valBpb, 6)}` : null,
     iteration.metrics.peakVramMb !== null ? formatMemoryGb(iteration.metrics.peakVramMb) : null,
     iteration.metrics.totalTokensM !== null ? `${formatCompactNumber(iteration.metrics.totalTokensM)}M tokens` : null,
   ].filter((part): part is string => Boolean(part));
 
-  return parts.join(" • ") || "No execution metrics captured yet.";
+  return parts.join(" • ") || "No observable trace captured yet.";
 }
 
 function getSelectedTension(
@@ -132,7 +143,7 @@ function getMirrorArtifact(
   };
 }
 
-function valueOrFallback(value: string | null | undefined, fallback = "Not captured"): string {
+function valueOrFallback(value: string | null | undefined, fallback = "Not yet constellated"): string {
   return value ?? fallback;
 }
 
@@ -164,9 +175,9 @@ export function SessionExplorer({
         <section className="hero-panel">
           <p className="eyebrow">Experiment Atlas</p>
           <h1>{session.title}</h1>
-          <p className="lead">This session exists, but no iterations were readable.</p>
+          <p className="lead">This constellation exists, but no readable moments were found.</p>
           <Link className="button-link" href="/">
-            Return to gallery
+            Return to atlas
           </Link>
         </section>
       </main>
@@ -183,46 +194,55 @@ export function SessionExplorer({
           <p className="eyebrow">Experiment Atlas</p>
           <h1>{session.title}</h1>
           <p className="lead">
-            {session.branch} • {titleCase(session.runnerMode)} • {session.source === "runpod" ? "fallback adapter" : "canonical log"}
+            {session.branch} • {titleCase(session.runnerMode)} • {session.source === "runpod" ? "shadow trace" : "canonical psyche"}
           </p>
           <p className="session-summary-text">
             {session.source === "runpod"
-              ? "This session is assembled from runpod artifacts, so only metrics and logs are guaranteed."
+              ? "This constellation is assembled from raw Runpod traces, so only metrics and logs are guaranteed as the observable record."
               : truncateText(session.notes, 160)}
           </p>
         </div>
 
         <div className="hero-actions">
-          <Link className="button-link" href="/">
-            All sessions
-          </Link>
-          <Link className="button-link button-link-subtle" href={`/session/${session.id}/iteration/${selectedIteration.label}`}>
-            Selected iteration
+          <Link className="button-link hero-action-card hero-action-atlas" href="/">
+            <span className="hero-action-kicker">Atlas</span>
+            <strong>All constellations</strong>
+            <span className="hero-action-meta">Return to the wider field</span>
           </Link>
           <Link
-            className="button-link button-link-subtle"
+            className="button-link button-link-subtle hero-action-card hero-action-moment"
+            href={`/session/${session.id}/iteration/${selectedIteration.label}`}
+          >
+            <span className="hero-action-kicker">Moment</span>
+            <strong>Selected moment</strong>
+            <span className="hero-action-meta">Focus the current iteration</span>
+          </Link>
+          <Link
+            className="button-link button-link-subtle hero-action-card hero-action-shadow"
             href={`/session/${session.id}/compare${selectedTension ? `?tension=${encodeQueryValue(selectedTension.id)}` : ""}`}
           >
-            Mirror view
+            <span className="hero-action-kicker">Shadow</span>
+            <strong>Shadow mirror</strong>
+            <span className="hero-action-meta">Contrast the active poles</span>
           </Link>
         </div>
 
         <div className="hero-metrics hero-metrics-wide">
-          <StatCard label="Iterations" value={String(session.stats.iterationCount)} detail={formatDateTime(session.updatedAt)} tone="accent-thesis" />
+          <StatCard label="Moments" value={String(session.stats.iterationCount)} detail={formatDateTime(session.updatedAt)} tone="accent-thesis" />
           <StatCard
-            label="Best val_bpb"
+            label="Best signal"
             value={formatMetric(session.stats.bestValBpb, 6)}
-            detail={session.stats.bestValBpb === null ? "Awaiting metrics" : "Lower is better"}
+            detail={session.stats.bestValBpb === null ? "Awaiting signal" : "Lower is better"}
             tone="accent-synthesis"
           />
           <StatCard
-            label="Active tensions"
+            label="Active complexes"
             value={String(session.stats.activeTensionCount)}
             detail={`${session.stats.confirmedCount} confirmed, ${session.stats.contradictionCount} contradicted`}
             tone="accent-antithesis"
           />
           <StatCard
-            label="Selected run"
+            label="Selected moment"
             value={selectedIteration.label}
             detail={summarizeExecution(selectedIteration)}
             tone="accent-neutral"
@@ -234,8 +254,8 @@ export function SessionExplorer({
         <aside className="panel iteration-rail">
           <div className="rail-heading">
             <div>
-              <p className="eyebrow">Iterations</p>
-              <h2>Session path</h2>
+              <p className="eyebrow">Moments</p>
+              <h2>Individuation path</h2>
             </div>
             <span className="badge badge-outline">{session.stats.iterationCount}</span>
           </div>
@@ -258,7 +278,7 @@ export function SessionExplorer({
                     </span>
                   </div>
                   <div className="rail-item-copy">
-                    <strong>{titleCase(iteration.moveType, "Observe")}</strong>
+                    <strong>{titleCase(iteration.moveType, "Attitude")}</strong>
                     <p>{truncateText(iteration.prediction ?? iteration.summaryText, 72)}</p>
                   </div>
                   <div className="rail-item-meta">
@@ -275,7 +295,7 @@ export function SessionExplorer({
           <div className="panel view-panel">
             <div className="view-toolbar">
               <div className="view-toolbar-copy">
-                <p className="eyebrow">Visual Canvas</p>
+                <p className="eyebrow">Symbolic Canvas</p>
                 <h2>{VIEW_OPTIONS.find((view) => view.id === activeMode)?.label}</h2>
                 <p>{VIEW_OPTIONS.find((view) => view.id === activeMode)?.description}</p>
               </div>
@@ -363,8 +383,8 @@ export function SessionExplorer({
         <aside className="panel inspector-card">
           <div className="inspector-heading">
             <div>
-              <p className="eyebrow">Inspector</p>
-              <h2>Iteration {selectedIteration.label}</h2>
+              <p className="eyebrow">Analytic Frame</p>
+              <h2>Moment {selectedIteration.label}</h2>
             </div>
             <span className={`badge ${outcomeTone(selectedIteration.keepDiscardStatus ?? selectedIteration.outcome)}`}>
               {titleCase(selectedIteration.keepDiscardStatus ?? selectedIteration.outcome, "Observed")}
@@ -379,7 +399,7 @@ export function SessionExplorer({
                 onClick={() => startTransition(() => setInspectorTab(tab))}
                 type="button"
               >
-                {titleCase(tab)}
+                {INSPECTOR_TAB_LABELS[tab]}
               </button>
             ))}
           </div>
@@ -484,7 +504,7 @@ function ChronicleView({
               </text>
               {index === 0 ? null : (
                 <text x={width - paddingX + 8} y={y + 5} className="chart-label">
-                  {index === tickValues.length - 1 ? "Earlier worse" : "Midline"}
+                  {index === tickValues.length - 1 ? "Earlier shadow" : "Midline"}
                 </text>
               )}
             </g>
@@ -526,14 +546,14 @@ function ChronicleView({
       </svg>
 
       <div className="note-grid">
-        <NarrativeCard title="Prediction" body={selectedIteration.prediction} tone="accent-thesis" />
-        <NarrativeCard title="Outcome" body={selectedIteration.outcome ?? selectedIteration.status} tone="accent-neutral" />
+        <NarrativeCard title="Foretelling" body={selectedIteration.prediction} tone="accent-thesis" />
+        <NarrativeCard title="Observed result" body={selectedIteration.outcome ?? selectedIteration.status} tone="accent-neutral" />
         <NarrativeCard
-          title="Contradiction"
+          title="Dissonance"
           body={selectedIteration.contradictedAssumption ?? selectedIteration.summaryText}
           tone="accent-antithesis"
         />
-        <NarrativeCard title="Next Move" body={selectedIteration.nextMoveType ?? selectedIteration.moveType} tone="accent-synthesis" />
+        <NarrativeCard title="Next movement" body={selectedIteration.nextMoveType ?? selectedIteration.moveType} tone="accent-synthesis" />
       </div>
     </div>
   );
@@ -585,7 +605,7 @@ function DialecticBraidView({
 
   return (
     <div className="view-stack">
-      <svg className="chart-svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Dialectic braid view">
+      <svg className="chart-svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Transcendent braid view">
         <path d={`M ${paddingX} ${lanes.thesis} C 280 ${lanes.thesis - 16}, 700 ${lanes.thesis + 16}, ${width - paddingX} ${lanes.thesis}`} className="lane-path thesis-lane" />
         <path d={`M ${paddingX} ${lanes.synthesis} C 300 ${lanes.synthesis - 12}, 680 ${lanes.synthesis + 12}, ${width - paddingX} ${lanes.synthesis}`} className="lane-path synthesis-lane" />
         <path d={`M ${paddingX} ${lanes.antithesis} C 280 ${lanes.antithesis - 16}, 700 ${lanes.antithesis + 16}, ${width - paddingX} ${lanes.antithesis}`} className="lane-path antithesis-lane" />
@@ -594,7 +614,7 @@ function DialecticBraidView({
           Thesis / exploit
         </text>
         <text x={paddingX} y={lanes.synthesis - 26} className="chart-lane-label">
-          Synthesis / merge
+          Transcendent function / merge
         </text>
         <text x={paddingX} y={lanes.antithesis - 26} className="chart-lane-label">
           Antithesis / negate
@@ -624,27 +644,26 @@ function DialecticBraidView({
       <div className="braid-summary">
         <div className="legend-strip">
           <span className="legend-chip legend-chip-thesis">Thesis</span>
-          <span className="legend-chip legend-chip-synthesis">Synthesis</span>
+          <span className="legend-chip legend-chip-synthesis">Transcendent function</span>
           <span className="legend-chip legend-chip-antithesis">Antithesis</span>
         </div>
         <p className="muted">
-          The thread shows how the session moved between exploitation, direct negation, and synthesis. Each knot is
-          color-coded by outcome and keeps the iteration ordering intact.
+          The thread shows how the session held the tension of opposites through exploitation, direct negation, and synthesis. Each knot is color-coded by outcome and keeps the moment ordering intact.
         </p>
         <div className="selected-summary-card">
-          <h3>Iteration {selectedIteration.label}</h3>
+          <h3>Moment {selectedIteration.label}</h3>
           <p>{truncateText(selectedIteration.prediction ?? selectedIteration.summaryText, 140)}</p>
           <dl className="inline-stats">
             <div>
-              <dt>Move</dt>
-              <dd>{titleCase(selectedIteration.moveType, "Observe")}</dd>
+              <dt>Attitude</dt>
+              <dd>{titleCase(selectedIteration.moveType, "Attitude")}</dd>
             </div>
             <div>
-              <dt>Outcome</dt>
+              <dt>Result</dt>
               <dd>{titleCase(selectedIteration.outcome ?? selectedIteration.keepDiscardStatus, "Observed")}</dd>
             </div>
             <div>
-              <dt>Val BPB</dt>
+              <dt>Signal</dt>
               <dd>{formatMetric(selectedIteration.metrics.valBpb, 6)}</dd>
             </div>
           </dl>
@@ -673,13 +692,13 @@ function CounterfactualMirrorView({
     return (
       <div className="view-stack">
         <div className="empty-state large-empty-state">
-          <p>No structured tensions have been captured for this session yet.</p>
+          <p>No structured complexes have been constellated for this session yet.</p>
           <p className="muted">
             The mirror view will become richer once canonical logs include thesis and antithesis snapshots under
             <code>tensions/*</code>.
           </p>
         </div>
-        <CodePanel title="Current tested code" snapshot={selectedIteration.actualCode} compact />
+        <CodePanel title="Current embodied code" snapshot={selectedIteration.actualCode} compact />
       </div>
     );
   }
@@ -688,7 +707,7 @@ function CounterfactualMirrorView({
     <div className="view-stack">
       <div className="mirror-toolbar">
         <label className="field-label" htmlFor="tension-select">
-          Focus tension
+          Focus complex
         </label>
         <select
           className="atlas-select"
@@ -707,7 +726,7 @@ function CounterfactualMirrorView({
       <div className="mirror-grid">
         <MirrorColumn
           title="Thesis"
-          subtitle={selectedTension?.label ?? "Current favored side"}
+          subtitle={selectedTension?.label ?? "Current dominant attitude"}
           tone="mirror-thesis"
           summary={selectedTension?.whyActive}
           code={selectedTension?.thesis}
@@ -715,7 +734,7 @@ function CounterfactualMirrorView({
 
         <MirrorColumn
           title="Synthesis"
-          subtitle={`Iteration ${mirror.iteration.label}`}
+          subtitle={`Moment ${mirror.iteration.label}`}
           tone="mirror-synthesis"
           summary={mirror.artifact?.emergentThought ?? mirror.iteration.summaryText ?? mirror.iteration.prediction}
           code={mirror.artifact?.code ?? mirror.iteration.actualCode}
@@ -724,7 +743,7 @@ function CounterfactualMirrorView({
 
         <MirrorColumn
           title="Antithesis"
-          subtitle={selectedTension?.kind ?? "Competing pole"}
+          subtitle={selectedTension?.kind ?? "Opposing pole"}
           tone="mirror-antithesis"
           summary={selectedTension?.favoredSide ? `Favored side: ${selectedTension.favoredSide}` : selectedTension?.whyActive}
           code={selectedTension?.antithesis}
@@ -776,7 +795,7 @@ function TensionConstellationView({
   if (!session.tensions.length) {
     return (
       <div className="empty-state large-empty-state">
-        <p>No structured tension graph is available for this session yet.</p>
+        <p>No structured complex constellation is available for this session yet.</p>
       </div>
     );
   }
@@ -805,13 +824,13 @@ function TensionConstellationView({
 
   return (
     <div className="view-stack">
-      <svg className="chart-svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Tension constellation">
+      <svg className="chart-svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Complex constellation">
         <circle cx={centerX} cy={centerY} r="80" className="constellation-core" />
         <text x={centerX} y={centerY - 6} textAnchor="middle" className="constellation-core-label">
-          Iteration {selectedIteration.label}
+          Moment {selectedIteration.label}
         </text>
         <text x={centerX} y={centerY + 18} textAnchor="middle" className="chart-axis-label">
-          {titleCase(selectedIteration.moveType, "Observe")}
+          {titleCase(selectedIteration.moveType, "Attitude")}
         </text>
 
         {points.map((point) => (
@@ -840,10 +859,10 @@ function TensionConstellationView({
       </svg>
 
       <div className="note-grid">
-        <NarrativeCard title="Focused tension" body={selectedTension?.label} tone="accent-thesis" />
+        <NarrativeCard title="Focused complex" body={selectedTension?.label} tone="accent-thesis" />
         <NarrativeCard title="Why active" body={selectedTension?.whyActive} tone="accent-neutral" />
         <NarrativeCard
-          title="Favored side"
+          title="Dominant side"
           body={selectedTension?.favoredSide ? `Favored: ${selectedTension.favoredSide}` : selectedTension?.kind}
           tone="accent-antithesis"
         />
@@ -851,7 +870,7 @@ function TensionConstellationView({
           title="Reuse"
           body={
             selectedTension
-              ? `Appears in ${selectedTension.iterationRefs.length} iteration${selectedTension.iterationRefs.length === 1 ? "" : "s"}`
+              ? `Appears in ${selectedTension.iterationRefs.length} moment${selectedTension.iterationRefs.length === 1 ? "" : "s"}`
               : null
           }
           tone="accent-synthesis"
@@ -900,7 +919,7 @@ function CodeStratigraphyView({
                   {titleCase(iteration.keepDiscardStatus ?? iteration.outcome, "Observed")}
                 </span>
               </div>
-              <h3>{titleCase(iteration.moveType, "Observe")}</h3>
+              <h3>{titleCase(iteration.moveType, "Attitude")}</h3>
               <p>{truncateText(iteration.prediction ?? iteration.summaryText, 100)}</p>
               <div className="stratigraphy-meta">
                 <span>{formatMetric(iteration.metrics.valBpb, 6)}</span>
@@ -963,13 +982,13 @@ function DecisionSankeyView({
     <div className="view-stack">
       <svg className="chart-svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Decision sankey">
         <text x={columns[0]} y="28" textAnchor="middle" className="chart-lane-label">
-          Move type
+          Attitude
         </text>
         <text x={columns[1]} y="28" textAnchor="middle" className="chart-lane-label">
-          Outcome
+          Result
         </text>
         <text x={columns[2]} y="28" textAnchor="middle" className="chart-lane-label">
-          Next move
+          Next movement
         </text>
 
         {flows.map((flow, index) => {
@@ -1012,9 +1031,9 @@ function DecisionSankeyView({
       </svg>
 
       <div className="selected-summary-card">
-        <h3>Selected flow: iteration {selectedIteration.label}</h3>
+        <h3>Selected flow: moment {selectedIteration.label}</h3>
         <p>
-          {titleCase(selectedIteration.moveType, "Observe")} →{" "}
+          {titleCase(selectedIteration.moveType, "Attitude")} →{" "}
           {titleCase(selectedIteration.outcome ?? selectedIteration.keepDiscardStatus, "Observed")} →{" "}
           {titleCase(selectedIteration.nextMoveType ?? selectedIteration.keepDiscardStatus, "Hold")}
         </p>
@@ -1056,7 +1075,7 @@ function ExperimentGenomeView({
             onClick={() => onSelectIteration(iteration.id)}
             type="button"
           >
-            <svg viewBox="0 0 180 180" className="genome-svg" role="img" aria-label={`Experiment genome ${iteration.label}`}>
+            <svg viewBox="0 0 180 180" className="genome-svg" role="img" aria-label={`Archetype genome ${iteration.label}`}>
               <circle cx="90" cy="90" r="58" className="genome-ring" />
               <circle
                 cx="90"
@@ -1091,8 +1110,8 @@ function ExperimentGenomeView({
               </text>
             </svg>
             <div className="genome-copy">
-              <strong>{titleCase(iteration.moveType, "Observe")}</strong>
-              <span>{tensionCount} tensions • {formatMemoryGb(iteration.metrics.peakVramMb)}</span>
+              <strong>{titleCase(iteration.moveType, "Attitude")}</strong>
+              <span>{tensionCount} complexes • {formatMemoryGb(iteration.metrics.peakVramMb)}</span>
             </div>
           </button>
         );
@@ -1125,14 +1144,14 @@ function NarrativeFilmstripView({
               {titleCase(iteration.outcome ?? iteration.keepDiscardStatus, "Observed")}
             </span>
           </div>
-          <p className="eyebrow">Prediction</p>
+          <p className="eyebrow">Foretelling</p>
           <p>{truncateText(iteration.prediction, 92)}</p>
-          <p className="eyebrow">Actual</p>
+          <p className="eyebrow">Actualized</p>
           <p>{truncateText(iteration.summaryText ?? iteration.outcome, 92)}</p>
-          <p className="eyebrow">Contradiction</p>
+          <p className="eyebrow">Dissonance</p>
           <p>{truncateText(iteration.contradictedAssumption, 92)}</p>
-          <p className="eyebrow">Next move</p>
-          <p>{titleCase(iteration.nextMoveType ?? iteration.moveType, "Observe")}</p>
+          <p className="eyebrow">Next movement</p>
+          <p>{titleCase(iteration.nextMoveType ?? iteration.moveType, "Attitude")}</p>
         </button>
       ))}
     </div>
@@ -1154,10 +1173,10 @@ function InspectorPanel({
     return (
       <div className="inspector-content">
         <div className="note-grid inspector-metric-grid">
-          <MetricDatum label="Val BPB" value={formatMetric(iteration.metrics.valBpb, 6)} />
+          <MetricDatum label="Signal" value={formatMetric(iteration.metrics.valBpb, 6)} />
           <MetricDatum label="VRAM" value={formatMemoryGb(iteration.metrics.peakVramMb)} />
           <MetricDatum label="Training" value={formatDuration(iteration.metrics.trainingSeconds)} />
-          <MetricDatum label="Total" value={formatDuration(iteration.metrics.totalSeconds)} />
+          <MetricDatum label="Total trace" value={formatDuration(iteration.metrics.totalSeconds)} />
           <MetricDatum label="MFU" value={formatPercent(iteration.metrics.mfuPercent)} />
           <MetricDatum label="Tokens" value={iteration.metrics.totalTokensM !== null ? `${formatCompactNumber(iteration.metrics.totalTokensM)}M` : "n/a"} />
           <MetricDatum label="Params" value={iteration.metrics.numParamsM !== null ? `${formatCompactNumber(iteration.metrics.numParamsM)}M` : "n/a"} />
@@ -1165,11 +1184,11 @@ function InspectorPanel({
         </div>
         <dl className="detail-list">
           <div>
-            <dt>Move type</dt>
-            <dd>{titleCase(iteration.moveType, "Observe")}</dd>
+            <dt>Attitude</dt>
+            <dd>{titleCase(iteration.moveType, "Attitude")}</dd>
           </div>
           <div>
-            <dt>Outcome</dt>
+            <dt>Observed result</dt>
             <dd>{titleCase(iteration.outcome ?? iteration.keepDiscardStatus, "Observed")}</dd>
           </div>
           <div>
@@ -1181,11 +1200,11 @@ function InspectorPanel({
             <dd>{formatDateTime(iteration.completedAt)}</dd>
           </div>
           <div>
-            <dt>Source</dt>
+            <dt>Artifact path</dt>
             <dd>{iteration.sourcePath}</dd>
           </div>
           <div>
-            <dt>Session objective</dt>
+            <dt>Session telos</dt>
             <dd>{session.objective ?? "n/a"}</dd>
           </div>
         </dl>
@@ -1196,7 +1215,7 @@ function InspectorPanel({
   if (tab === "plan") {
     return (
       <div className="inspector-content">
-        <NarrativeCard title="Prediction" body={iteration.prediction} tone="accent-thesis" />
+        <NarrativeCard title="Foretelling" body={iteration.prediction} tone="accent-thesis" />
         <dl className="detail-list">
           <div>
             <dt>Parent commit</dt>
@@ -1207,8 +1226,8 @@ function InspectorPanel({
             <dd>{valueOrFallback(iteration.candidateCommit)}</dd>
           </div>
           <div>
-            <dt>Active tensions</dt>
-            <dd>{iteration.activeTensionIds.length ? iteration.activeTensionIds.join(", ") : "None captured"}</dd>
+            <dt>Active complexes</dt>
+            <dd>{iteration.activeTensionIds.length ? iteration.activeTensionIds.join(", ") : "None constellated"}</dd>
           </div>
         </dl>
         <JsonPanel title="plan.json" payload={iteration.planRaw} />
@@ -1219,22 +1238,22 @@ function InspectorPanel({
   if (tab === "result") {
     return (
       <div className="inspector-content">
-        <NarrativeCard title="Result" body={iteration.summaryText ?? iteration.outcome} tone="accent-neutral" />
+        <NarrativeCard title="Integration" body={iteration.summaryText ?? iteration.outcome} tone="accent-neutral" />
         <dl className="detail-list">
           <div>
-            <dt>Outcome</dt>
+            <dt>Observed result</dt>
             <dd>{titleCase(iteration.outcome, "Observed")}</dd>
           </div>
           <div>
-            <dt>Keep / discard</dt>
+            <dt>Integration status</dt>
             <dd>{titleCase(iteration.keepDiscardStatus, "Not set")}</dd>
           </div>
           <div>
-            <dt>Contradicted assumption</dt>
+            <dt>Wounded assumption</dt>
             <dd>{valueOrFallback(iteration.contradictedAssumption)}</dd>
           </div>
           <div>
-            <dt>Next move</dt>
+            <dt>Next movement</dt>
             <dd>{titleCase(iteration.nextMoveType, "Not set")}</dd>
           </div>
         </dl>
@@ -1246,7 +1265,7 @@ function InspectorPanel({
   if (tab === "code") {
     return (
       <div className="inspector-content">
-        <CodePanel title="Tested train.py" snapshot={iteration.actualCode} />
+        <CodePanel title="Embodied train.py" snapshot={iteration.actualCode} />
       </div>
     );
   }
@@ -1254,7 +1273,7 @@ function InspectorPanel({
   if (tab === "diff") {
     return (
       <div className="inspector-content">
-        <CodePanel title="train.py diff" snapshot={iteration.diff} />
+        <CodePanel title="Mutation patch" snapshot={iteration.diff} />
       </div>
     );
   }
@@ -1268,7 +1287,7 @@ function InspectorPanel({
               <article key={tension.id} className={`tension-card ${selectedTension?.id === tension.id ? "tension-card-active" : ""}`}>
                 <div className="tension-card-top">
                   <div>
-                    <p className="eyebrow">Tension</p>
+                    <p className="eyebrow">Complex</p>
                     <h3>{tension.label}</h3>
                   </div>
                   <span className="badge badge-outline">{tension.id}</span>
@@ -1280,7 +1299,7 @@ function InspectorPanel({
                     <dd>{valueOrFallback(tension.kind)}</dd>
                   </div>
                   <div>
-                    <dt>Favored side</dt>
+                    <dt>Dominant side</dt>
                     <dd>{valueOrFallback(tension.favoredSide)}</dd>
                   </div>
                 </dl>
@@ -1289,7 +1308,7 @@ function InspectorPanel({
           </>
         ) : (
           <div className="empty-state">
-            <p>No structured tensions captured for this iteration.</p>
+            <p>No structured complexes were captured for this moment.</p>
           </div>
         )}
       </div>
@@ -1301,27 +1320,27 @@ function InspectorPanel({
       <div className="inspector-content">
         {iteration.transcendent ? (
           <>
-            <NarrativeCard title="Emergent thought" body={iteration.transcendent.emergentThought} tone="accent-synthesis" />
+            <NarrativeCard title="Emergent image" body={iteration.transcendent.emergentThought} tone="accent-synthesis" />
             <dl className="detail-list">
               <div>
-                <dt>Source tensions</dt>
-                <dd>{iteration.transcendent.sourceTensionIds.join(", ") || "None captured"}</dd>
+                <dt>Source complexes</dt>
+                <dd>{iteration.transcendent.sourceTensionIds.join(", ") || "None constellated"}</dd>
               </div>
               <div>
-                <dt>Concrete change</dt>
+                <dt>Embodied change</dt>
                 <dd>{valueOrFallback(iteration.transcendent.concreteChange)}</dd>
               </div>
               <div>
-                <dt>Status</dt>
+                <dt>Transcendent status</dt>
                 <dd>{titleCase(iteration.transcendent.resultStatus, "Observed")}</dd>
               </div>
             </dl>
-            <CodePanel title="Synthesis code" snapshot={iteration.transcendent.code} />
+            <CodePanel title="Synthesized code" snapshot={iteration.transcendent.code} />
             <JsonPanel title="transcendent/result.json" payload={iteration.transcendent.raw} />
           </>
         ) : (
           <div className="empty-state">
-            <p>No transcendent artifact was captured for this iteration.</p>
+            <p>No transcendent artifact was captured for this moment.</p>
           </div>
         )}
       </div>
@@ -1330,8 +1349,8 @@ function InspectorPanel({
 
   return (
     <div className="inspector-content">
-      <JsonPanel title="Execution summary" payload={iteration.execution.summary} />
-      <JsonPanel title="Execution metadata" payload={iteration.execution.metadata} />
+      <JsonPanel title="Trace summary" payload={iteration.execution.summary} />
+      <JsonPanel title="Trace metadata" payload={iteration.execution.metadata} />
       <CodePanel title="run.log" snapshot={iteration.execution.runLog} />
     </div>
   );

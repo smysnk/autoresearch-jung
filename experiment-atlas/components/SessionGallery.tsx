@@ -16,20 +16,20 @@ export function SessionGallery({ sessions }: SessionGalleryProps) {
       <section className="hero-panel">
         <div className="hero-copy">
           <p className="eyebrow">Experiment Atlas</p>
-          <h1>Research sessions as a navigable map, not a flat run log.</h1>
+          <h1>Research constellations as a navigable map, not a flat run log.</h1>
           <p className="lead">
-            This explorer reads canonical sessions from <code>experiment_logs/</code> and falls back to grouped
-            <code>runpod_runs/</code> artifacts when the new schema is not available yet.
+            This explorer reads canonical constellations from <code>experiment_logs/</code> and falls back to grouped
+            <code>runpod_runs/</code> traces when the deeper symbolic schema is not available yet.
           </p>
         </div>
         <div className="hero-metrics">
           <div className="metric-card accent-thesis">
-            <span className="metric-label">Sessions</span>
+            <span className="metric-label">Constellations</span>
             <strong>{sessions.length}</strong>
-            <span className="metric-detail">{canonicalCount} canonical, {fallbackCount} fallback</span>
+            <span className="metric-detail">{canonicalCount} canonical psyches, {fallbackCount} shadow traces</span>
           </div>
           <div className="metric-card accent-synthesis">
-            <span className="metric-label">Best Visible Val BPB</span>
+            <span className="metric-label">Best Visible Signal</span>
             <strong>
               {formatMetric(
                 [...sessions]
@@ -39,7 +39,7 @@ export function SessionGallery({ sessions }: SessionGalleryProps) {
                 6,
               )}
             </strong>
-            <span className="metric-detail">Across all currently readable sessions</span>
+            <span className="metric-detail">Across all currently readable constellations</span>
           </div>
         </div>
       </section>
@@ -47,17 +47,17 @@ export function SessionGallery({ sessions }: SessionGalleryProps) {
       <section className="gallery-panel">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">Session Gallery</p>
-            <h2>Available session narratives</h2>
+            <p className="eyebrow">Constellation Gallery</p>
+            <h2>Available research psyches</h2>
           </div>
         </div>
 
         {sessions.length === 0 ? (
           <div className="empty-state">
-            <p>No experiment sessions were found.</p>
+            <p>No experiment constellations were found.</p>
             <p className="muted">
               Add canonical logs under <code>experiment_logs/</code> or keep generating <code>runpod_runs/</code>
-              artifacts for the fallback adapter.
+              artifacts for the fallback trace adapter.
             </p>
           </div>
         ) : (
@@ -66,7 +66,7 @@ export function SessionGallery({ sessions }: SessionGalleryProps) {
               <Link key={session.id} href={`/session/${session.id}`} className="session-card">
                 <div className="session-card-top">
                   <span className={`badge ${session.source === "experiment_logs" ? "badge-keep" : "badge-neutral"}`}>
-                    {session.source === "experiment_logs" ? "Canonical" : "Fallback"}
+                    {session.source === "experiment_logs" ? "Canonical" : "Shadow Trace"}
                   </span>
                   <span className="badge badge-outline">{titleCase(session.runnerMode)}</span>
                 </div>
@@ -79,15 +79,15 @@ export function SessionGallery({ sessions }: SessionGalleryProps) {
 
                 <dl className="session-stats">
                   <div>
-                    <dt>Iterations</dt>
+                    <dt>Moments</dt>
                     <dd>{session.stats.iterationCount}</dd>
                   </div>
                   <div>
-                    <dt>Best val_bpb</dt>
+                    <dt>Best signal</dt>
                     <dd>{formatMetric(session.stats.bestValBpb, 6)}</dd>
                   </div>
                   <div>
-                    <dt>Latest VRAM</dt>
+                    <dt>Latest memory</dt>
                     <dd>
                       {formatMemoryGb(
                         [...session.iterations]
@@ -98,7 +98,7 @@ export function SessionGallery({ sessions }: SessionGalleryProps) {
                     </dd>
                   </div>
                   <div>
-                    <dt>Updated</dt>
+                    <dt>Last constellated</dt>
                     <dd>{formatDateTime(session.updatedAt)}</dd>
                   </div>
                 </dl>
