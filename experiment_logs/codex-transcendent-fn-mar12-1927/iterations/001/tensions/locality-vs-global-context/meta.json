@@ -1,0 +1,21 @@
+{
+  "antithesis_source": {
+    "type": "inline"
+  },
+  "antithesis_summary": "Use full-window attention throughout because global coverage may matter more than local efficiency once value embeddings are gone.",
+  "antithesis_train_py": "iterations/001/tensions/locality-vs-global-context/antithesis/train.py",
+  "created_in_iteration": 1,
+  "favored_side": "thesis",
+  "id": "locality-vs-global-context",
+  "kind": "inductive-bias-vs-coverage",
+  "label": "Locality vs global context",
+  "schema_version": 1,
+  "thesis_source": {
+    "path": "train.py",
+    "type": "current"
+  },
+  "thesis_summary": "Keep the mixed `SSSL` attention pattern because it preserves throughput while still forcing a full-context pass each cycle.",
+  "thesis_train_py": "iterations/001/tensions/locality-vs-global-context/thesis/train.py",
+  "updated_in_iteration": 1,
+  "why_active": "The current branch baseline inherits the mixed `SSSL` pattern from the archived winner, but removing value embeddings may change how much the model relies on periodic full-context refresh. This branch still needs to learn whether the mixed pattern is essential or just a throughput convenience."
+}

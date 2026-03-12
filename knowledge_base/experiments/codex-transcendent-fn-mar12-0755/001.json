@@ -64,12 +64,11 @@
   "status": "completed",
   "summary_text": null,
   "supports_experiment_ids": [
-    "codex-transcendent-fn-mar12-0657:001",
-    "codex-transcendent-fn-mar12-0657:002",
     "codex-transcendent-fn-mar12-0755:002",
     "codex-transcendent-fn-mar12-1341:001",
     "codex-transcendent-fn-mar12-1341:002",
-    "codex-transcendent-fn-mar12-1341:003"
+    "codex-transcendent-fn-mar12-1341:003",
+    "codex-transcendent-fn-mar12-1927:001"
   ],
   "takeaway": "Completed run reached val_bpb 0.996233.",
   "tension_count": 0,

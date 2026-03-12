@@ -1,0 +1,48 @@
+{
+  "branch": "codex/transcendent/fn-mar12-1927",
+  "current_iteration_label": "001",
+  "execution_dir": "/Users/josh/play/autoresearch/runpod_runs/20260312T233056Z-autoresearch-exp01",
+  "execution_id": "20260312T233056Z-autoresearch-exp01",
+  "experiment_count": 5,
+  "experiment_index": 1,
+  "is_active": true,
+  "phase": "reflect_complete",
+  "prepare": {
+    "captured_at": "2026-03-12T23:30:56Z",
+    "changed_count": 1,
+    "last_message_path": "last-message.txt",
+    "modified_files": [
+      "research_state/current_iteration.json"
+    ],
+    "patches": [
+      {
+        "patch_path": "patches/research_state__current_iteration.json.diff.patch",
+        "path": "research_state/current_iteration.json",
+        "status": "modified"
+      }
+    ],
+    "phase": "prepare",
+    "state_path": "current_iteration.json",
+    "summary": "Prepared the required baseline state in [current_iteration.json](/Users/josh/play/autoresearch/research_state/current_iteration.json). The planned move is `exploit`: run the current `train.py` unchanged as the branch-local baseline, anchored against `codex-transcendent-fn-mar12-0755:001` (`val_bpb=0.996233`). The active tensions now reflect the actual embodied code on this branch: plain 8-layer `SSSL`, `USE_VALUE_EMBEDDINGS = False`, versus the archived value-embedding incumbent and its main follow-up oppositions.",
+    "transcript_path": "transcript.log"
+  },
+  "reflect": {
+    "captured_at": "2026-03-12T23:42:45Z",
+    "changed_count": 0,
+    "last_message_path": null,
+    "modified_files": [],
+    "patches": [],
+    "phase": "reflect",
+    "state_path": "current_iteration.json",
+    "summary": null,
+    "transcript_path": "transcript.log"
+  },
+  "relay_state_path": "/Users/josh/play/autoresearch/runpod_runs/20260312T233056Z-autoresearch-exp01/artifacts/live/relay-state.json",
+  "run_log_path": "/Users/josh/play/autoresearch/runpod_runs/20260312T233056Z-autoresearch-exp01/artifacts/run.log",
+  "runner_mode": "runpod",
+  "schema_version": 1,
+  "session_id": "codex-transcendent-fn-mar12-1927",
+  "status": "reflect_complete",
+  "telemetry_events_path": "/Users/josh/play/autoresearch/runpod_runs/20260312T233056Z-autoresearch-exp01/artifacts/live/relay-events.ndjson",
+  "updated_at": "2026-03-12T23:42:45Z"
+}

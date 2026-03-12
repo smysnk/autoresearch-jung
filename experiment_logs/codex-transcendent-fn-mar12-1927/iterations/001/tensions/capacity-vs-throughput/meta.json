@@ -1,0 +1,21 @@
+{
+  "antithesis_source": {
+    "type": "inline"
+  },
+  "antithesis_summary": "Spend the saved value-embedding budget on more ordinary depth, even if that costs throughput.",
+  "antithesis_train_py": "iterations/001/tensions/capacity-vs-throughput/antithesis/train.py",
+  "created_in_iteration": 1,
+  "favored_side": "thesis",
+  "id": "capacity-vs-throughput",
+  "kind": "capacity-vs-throughput",
+  "label": "Capacity vs throughput",
+  "schema_version": 1,
+  "thesis_source": {
+    "path": "train.py",
+    "type": "current"
+  },
+  "thesis_summary": "Preserve the plain 8-layer scale first so the branch measures maximal short-run step count with the current simple stack.",
+  "thesis_train_py": "iterations/001/tensions/capacity-vs-throughput/thesis/train.py",
+  "updated_in_iteration": 1,
+  "why_active": "If the plain stack lands only slightly behind the archived winner, the next question is whether the missing quality came from lost capacity or from losing the specific value-embedding mechanism. That makes a deeper plain follow-up the most natural counterpoint."
+}

@@ -1,0 +1,19 @@
+{
+  "captured_at": "2026-03-12T23:30:56Z",
+  "changed_count": 1,
+  "last_message_path": "last-message.txt",
+  "modified_files": [
+    "research_state/current_iteration.json"
+  ],
+  "patches": [
+    {
+      "patch_path": "patches/research_state__current_iteration.json.diff.patch",
+      "path": "research_state/current_iteration.json",
+      "status": "modified"
+    }
+  ],
+  "phase": "prepare",
+  "state_path": "current_iteration.json",
+  "summary": "Prepared the required baseline state in [current_iteration.json](/Users/josh/play/autoresearch/research_state/current_iteration.json). The planned move is `exploit`: run the current `train.py` unchanged as the branch-local baseline, anchored against `codex-transcendent-fn-mar12-0755:001` (`val_bpb=0.996233`). The active tensions now reflect the actual embodied code on this branch: plain 8-layer `SSSL`, `USE_VALUE_EMBEDDINGS = False`, versus the archived value-embedding incumbent and its main follow-up oppositions.",
+  "transcript_path": "transcript.log"
+}

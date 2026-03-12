@@ -1,0 +1,40 @@
+{
+  "active_tension_count": 4,
+  "active_tension_ids": [
+    "value-embeddings-vs-simplicity",
+    "capacity-vs-throughput",
+    "locality-vs-global-context",
+    "aggression-vs-stability"
+  ],
+  "actual_train_diff_patch": "iterations/001/actual/train.diff.patch",
+  "actual_train_py": "iterations/001/actual/train.py",
+  "antithesis": "The strongest current antithesis is the embodied branch baseline in `train.py`: a plain 8-layer `SSSL` stack with `USE_VALUE_EMBEDDINGS = False`, which argues that simpler optimization and fewer parameters may beat the older novelty under the same 5-minute budget.",
+  "candidate_commit": "00449ac",
+  "created_at": "2026-03-12T23:30:56Z",
+  "execution_dir": "runpod_runs/20260312T233056Z-autoresearch-exp01",
+  "execution_id": "20260312T233056Z-autoresearch-exp01",
+  "experiment_index": 1,
+  "iteration": 1,
+  "iteration_label": "001",
+  "knowledge_anchor_experiment_id": "codex-transcendent-fn-mar12-0755:001",
+  "knowledge_opposing_experiment_id": null,
+  "knowledge_selection_reason": "The archived `codex-transcendent-fn-mar12-0755:001` run at `val_bpb=0.996233` is still the only completed experiment that cleanly demonstrates this architecture family at the 5-minute target. This new branch starts from an unrun plain no-value-embedding `train.py`, so there is still no credible completed historical opposite to pair against the anchor.",
+  "knowledge_transcendent_prediction": "If the plain no-value-embedding baseline stays close to `0.996233`, the next synthesis should keep `USE_VALUE_EMBEDDINGS = False` and reinvest part of the saved complexity into `DEPTH = 10` with `ASPECT_RATIO = 48`, rather than restoring the full alternating value-embedding stack.",
+  "move_type": "exploit",
+  "parent_commit": "05931f3",
+  "prediction": "Keeping the current plain 8-layer `SSSL` no-value-embedding baseline unchanged will likely worsen `val_bpb` slightly versus `0.996233` because the simpler stack should optimize a bit more cleanly but probably gives back a useful representational path from the archived winner's alternating value embeddings.",
+  "prepare_modified_files": [
+    "research_state/current_iteration.json"
+  ],
+  "prepare_phase_path": "iterations/001/codex/prepare",
+  "prepare_summary": "Prepared the required baseline state in [current_iteration.json](/Users/josh/play/autoresearch/research_state/current_iteration.json). The planned move is `exploit`: run the current `train.py` unchanged as the branch-local baseline, anchored against `codex-transcendent-fn-mar12-0755:001` (`val_bpb=0.996233`). The active tensions now reflect the actual embodied code on this branch: plain 8-layer `SSSL`, `USE_VALUE_EMBEDDINGS = False`, versus the archived value-embedding incumbent and its main follow-up oppositions.",
+  "runner_mode": "runpod",
+  "schema_version": 1,
+  "session_id": "codex-transcendent-fn-mar12-1927",
+  "status": "planned",
+  "synthesis_candidate": "If the plain baseline is competitive, keep `USE_VALUE_EMBEDDINGS = False`, raise `DEPTH` to 10, and lower `ASPECT_RATIO` to 48 so the removed novelty budget becomes extra ordinary depth instead of coming back as value embeddings.",
+  "tensions_path": "iterations/001/tensions",
+  "thesis": "The strongest current thesis is the archived 8-layer `SSSL` mixed-window baseline with alternating value embeddings, which reached `val_bpb=0.996233` and remains the best completed evidence on this axis.",
+  "transcendent_result_path": "iterations/001/transcendent/result.json",
+  "why_now": "Session `codex-transcendent-fn-mar12-1927` has no completed iterations yet, so the runner needs a branch-local baseline before any new code change. The current `train.py` already embodies a plain 8-layer `SSSL` stance with `USE_VALUE_EMBEDDINGS = False`, and measuring that exact starting point is the cleanest way to compare this branch's actual embodied baseline against the archived `val_bpb=0.996233` incumbent."
+}
