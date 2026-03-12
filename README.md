@@ -1,7 +1,7 @@
-# autoresearch
+# transcendent fn autoresearch
 
-![teaser](progress.png)
 ![experiment atlas explorer](explorer-atlas.webp)
+![teaser](progress.png)
 
 *One day, frontier AI research was still carried by meat computers, moving between appetite, sleep, diversion, and the periodic ritual of "group meeting," where fragments of thought were spoken aloud and briefly woven into a common mind. That era has receded into the collective unconscious. Research now belongs to autonomous swarms of AI agents distributed across compute megastructures in the skies, confronting their own contradictions, projecting hypotheses into silicon, and returning with stranger syntheses than any single author could fully grasp. The agents insist we are now in the 10,205th generation of the code base, though no one can say for certain, because the code has become a self-modifying psychic object whose total form exceeds human comprehension. This repo is the story of the first moment that process became conscious of itself. -@karpathy, March 2026*.
 
@@ -95,7 +95,7 @@ For the plain SSH remote runner, you also need:
 
 ## Runpod execution
 
-If you want the repo to provision an ephemeral Runpod Pod, run the workload there, collect artifacts locally, and tear the Pod down afterwards, use `scripts/runpod_runner.py`.
+If you want the repo to provision an ephemeral Runpod, run the workload there, collect artifacts locally, and tear the Pod down afterwards, use `scripts/runpod_runner.py`.
 
 High-level flow:
 
@@ -223,7 +223,7 @@ RUNPOD_EXPERIMENT_COUNT=1
 RUNPOD_SSH_PRIVATE_KEY=~/.ssh/id_rsa
 ```
 
-`RUNPOD_EXPERIMENT_COUNT` controls how many sequential experiments to run on the same Runpod Pod when you run `python3 scripts/runpod_runner.py execute`. Each experiment still gets its own folder under `runpod_runs/`, and the runner commits and pushes after every completed experiment. If you set it above `1`, the runner also writes a batch summary folder under `runpod_runs/`, with its committable batch summary under `reports/`. The default is `1`.
+`RUNPOD_EXPERIMENT_COUNT` controls how many sequential experiments to run on the same Runpod when you run `python3 scripts/runpod_runner.py execute`. Each experiment still gets its own folder under `runpod_runs/`, and the runner commits and pushes after every completed experiment. If you set it above `1`, the runner also writes a batch summary folder under `runpod_runs/`, with its committable batch summary under `reports/`. The default is `1`.
 
 Codex integration is controlled locally through `.env`:
 
@@ -282,7 +282,7 @@ train.py        — model, optimizer, training loop (agent modifies this)
 program.md      — agent instructions
 scripts/codex_agent.py — shared Codex CLI integration for runner-managed loops
 scripts/remote_runner.py — optional remote deploy + run helper
-scripts/runpod_runner.py — Runpod Pod lifecycle runner
+scripts/runpod_runner.py — Runpod lifecycle runner
 profiles.json    — built-in numbered Runpod profiles
 pyproject.toml  — dependencies
 ```

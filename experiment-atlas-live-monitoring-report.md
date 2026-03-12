@@ -17,7 +17,7 @@ The intended topology is:
 
 1. the local runner invokes Codex CLI `prepare`
 2. the runner writes `research_state/current_iteration.json`
-3. the runner deploys to the Runpod Pod
+3. the runner deploys to Runpod
 4. the Pod exposes live training telemetry
 5. `experiment-atlas` consumes both runner-phase state and Pod live state
 6. the runner retrieves artifacts and invokes Codex CLI `reflect`
@@ -725,7 +725,7 @@ The best first implementation is:
 1. keep the current artifact and session-log flow unchanged
 2. emit runner lifecycle events locally for `prepare`, deploy, training, artifact sync, `reflect`, and commit
 3. capture structured file diffs for Codex `prepare` and `reflect`
-4. add a websocket port to the Runpod Pod
+4. add a websocket port to Runpod
 5. launch a relay process beside the training process
 6. parse current step logs as a fallback
 7. add an optional structured emitter to `train.py` for richer live events
