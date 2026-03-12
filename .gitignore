@@ -32,3 +32,9 @@ runpod_runs/*/logs/
 runpod_runs/*/metadata/
 runpod.json
 .env
+
+# Yarn-generated state
+**/.yarn/cache/
+**/.yarn/install-state.gz
+**/.yarn/unplugged/
+**/.yarn/build-state.yml

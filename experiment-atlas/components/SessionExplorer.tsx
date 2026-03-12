@@ -68,6 +68,17 @@ const INSPECTOR_TAB_LABELS: Record<InspectorTab, string> = {
   execution: "Trace",
 };
 
+const INSPECTOR_TAB_DESCRIPTIONS: Record<InspectorTab, string> = {
+  metrics: "Expanded metrics, vessel stats, and artifact context for the selected moment.",
+  plan: "Prediction, preparation moves, and the staged Codex intervention before the run.",
+  result: "Integrated outcome, reflected meaning, and post-run interpretation.",
+  code: "The exact embodied train.py that animated this moment.",
+  diff: "Mutation patch showing what changed relative to the prior state.",
+  tensions: "Structured complexes captured for the current moment.",
+  transcendent: "The emergent third image and its embodied synthesis.",
+  execution: "Raw trace surfaces, metadata, relay state, and execution logs.",
+};
+
 function normalizeIterationLabel(value: string | undefined): string | null {
   if (!value) {
     return null;
@@ -93,6 +104,44 @@ function laneForMoveType(moveType: string | null): "thesis" | "synthesis" | "ant
 
 function encodeQueryValue(value: string): string {
   return encodeURIComponent(value);
+}
+
+function splitHeroTitle(title: string): { prefix: string | null; focus: string } {
+  const normalized = title.trim();
+  if (!normalized) {
+    return { prefix: null, focus: title };
+  }
+
+  const dateSuffixMatch = normalized.match(
+    /^(.*?)(?:[-/])((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\d{1,2}(?:[-_]\d{4})?)$/i,
+  );
+  if (dateSuffixMatch) {
+    const [, rawPrefix, rawFocus] = dateSuffixMatch;
+    return {
+      prefix: rawPrefix.replace(/[-/]+$/, "") || null,
+      focus: rawFocus,
+    };
+  }
+
+  const lastSlash = normalized.lastIndexOf("/");
+  if (lastSlash > 0 && lastSlash < normalized.length - 1) {
+    return {
+      prefix: normalized.slice(0, lastSlash),
+      focus: normalized.slice(lastSlash + 1),
+    };
+  }
+
+  return { prefix: null, focus: normalized };
+}
+
+function HeroTitle({ title }: { title: string }) {
+  const { prefix, focus } = splitHeroTitle(title);
+  return (
+    <h1 className="hero-title">
+      {prefix ? <span className="hero-title-prefix">{prefix}</span> : null}
+      <span className="hero-title-focus">{focus}</span>
+    </h1>
+  );
 }
 
 function summarizeExecution(iteration: IterationNode): string {
@@ -278,6 +327,7 @@ export function SessionExplorer({
   const [selectedIterationId, setSelectedIterationId] = useState(initialIteration?.id ?? "");
   const [activeMode, setActiveMode] = useState<VisualMode>(initialMode);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>("metrics");
+  const [isInspectorFocusMinimized, setInspectorFocusMinimized] = useState(false);
   const [selectedTensionId, setSelectedTensionId] = useState(
     focusTensionId ?? initialIteration?.tensions[0]?.id ?? session.tensions[0]?.id ?? "",
   );
@@ -300,7 +350,7 @@ export function SessionExplorer({
       <main className="page-shell compact-shell">
         <section className="hero-panel">
           <p className="eyebrow">Experiment Atlas</p>
-          <h1>{session.title}</h1>
+          <HeroTitle title={session.title} />
           <p className="lead">This constellation exists, but no readable moments were found.</p>
           <Link className="button-link" href="/">
             Return to atlas
@@ -313,13 +363,29 @@ export function SessionExplorer({
   const selectedTension = getSelectedTension(session, selectedIteration, selectedTensionId);
   const mirror = getMirrorArtifact(session, selectedIteration, selectedTension);
   const sessionStateKind = getSessionStateKind(session);
+  const inspectorFocusOpen = !isInspectorFocusMinimized;
+  const selectCanvasMode = (mode: VisualMode) =>
+    startTransition(() => {
+      setActiveMode(mode);
+      setInspectorFocusMinimized(true);
+    });
+  const selectCanvasIteration = (iterationId: string) =>
+    startTransition(() => {
+      setSelectedIterationId(iterationId);
+      setInspectorFocusMinimized(true);
+    });
+  const selectCanvasTension = (tensionId: string) =>
+    startTransition(() => {
+      setSelectedTensionId(tensionId);
+      setInspectorFocusMinimized(true);
+    });
 
   return (
     <main className="page-shell explorer-shell">
       <section className="hero-panel hero-panel-tight">
         <div className="hero-copy">
           <p className="eyebrow">Experiment Atlas</p>
-          <h1>{session.title}</h1>
+          <HeroTitle title={session.title} />
           <p className="lead">
             {session.branch} • {titleCase(session.runnerMode)} • {session.source === "runpod" ? "shadow trace" : "canonical psyche"}
           </p>
@@ -452,7 +518,7 @@ export function SessionExplorer({
                   <button
                     key={view.id}
                     className={`toolbar-chip ${activeMode === view.id ? "toolbar-chip-active" : ""}`}
-                    onClick={() => startTransition(() => setActiveMode(view.id))}
+                    onClick={() => selectCanvasMode(view.id)}
                     type="button"
                   >
                     {view.label}
@@ -461,11 +527,37 @@ export function SessionExplorer({
               </div>
             </div>
 
+            {inspectorFocusOpen ? (
+              <section className="inspector-focus-panel">
+                <div className="inspector-focus-header">
+                  <div>
+                    <p className="eyebrow">Expanded analytic card</p>
+                    <h3>{INSPECTOR_TAB_LABELS[inspectorTab]}</h3>
+                    <p className="muted">{INSPECTOR_TAB_DESCRIPTIONS[inspectorTab]}</p>
+                  </div>
+                  <button
+                    aria-label="Minimize analytic card"
+                    className="inspector-focus-dismiss"
+                    onClick={() => setInspectorFocusMinimized(true)}
+                    type="button"
+                  >
+                    <span aria-hidden="true">×</span>
+                  </button>
+                </div>
+                <InspectorPanel
+                  session={session}
+                  iteration={selectedIteration}
+                  selectedTension={selectedTension}
+                  tab={inspectorTab}
+                />
+              </section>
+            ) : null}
+
             {activeMode === "chronicle" ? (
               <ChronicleView
                 iterations={session.iterations}
                 selectedIteration={selectedIteration}
-                onSelectIteration={(iterationId) => startTransition(() => setSelectedIterationId(iterationId))}
+                onSelectIteration={selectCanvasIteration}
               />
             ) : null}
 
@@ -473,7 +565,7 @@ export function SessionExplorer({
               <DialecticBraidView
                 iterations={session.iterations}
                 selectedIteration={selectedIteration}
-                onSelectIteration={(iterationId) => startTransition(() => setSelectedIterationId(iterationId))}
+                onSelectIteration={selectCanvasIteration}
               />
             ) : null}
 
@@ -484,7 +576,7 @@ export function SessionExplorer({
                 selectedTension={selectedTension}
                 selectedTensionId={selectedTensionId}
                 mirror={mirror}
-                onSelectTension={(tensionId) => startTransition(() => setSelectedTensionId(tensionId))}
+                onSelectTension={selectCanvasTension}
               />
             ) : null}
 
@@ -493,7 +585,7 @@ export function SessionExplorer({
                 session={session}
                 selectedIteration={selectedIteration}
                 selectedTension={selectedTension}
-                onSelectTension={(tensionId) => startTransition(() => setSelectedTensionId(tensionId))}
+                onSelectTension={selectCanvasTension}
               />
             ) : null}
 
@@ -501,7 +593,7 @@ export function SessionExplorer({
               <CodeStratigraphyView
                 iterations={session.iterations}
                 selectedIteration={selectedIteration}
-                onSelectIteration={(iterationId) => startTransition(() => setSelectedIterationId(iterationId))}
+                onSelectIteration={selectCanvasIteration}
               />
             ) : null}
 
@@ -513,7 +605,7 @@ export function SessionExplorer({
               <ExperimentGenomeView
                 iterations={session.iterations}
                 selectedIteration={selectedIteration}
-                onSelectIteration={(iterationId) => startTransition(() => setSelectedIterationId(iterationId))}
+                onSelectIteration={selectCanvasIteration}
               />
             ) : null}
 
@@ -521,7 +613,7 @@ export function SessionExplorer({
               <NarrativeFilmstripView
                 iterations={session.iterations}
                 selectedIteration={selectedIteration}
-                onSelectIteration={(iterationId) => startTransition(() => setSelectedIterationId(iterationId))}
+                onSelectIteration={selectCanvasIteration}
               />
             ) : null}
           </div>
@@ -543,7 +635,12 @@ export function SessionExplorer({
               <button
                 key={tab}
                 className={`tab-chip ${inspectorTab === tab ? "tab-chip-active" : ""}`}
-                onClick={() => startTransition(() => setInspectorTab(tab))}
+                onClick={() =>
+                  startTransition(() => {
+                    setInspectorTab(tab);
+                    setInspectorFocusMinimized(false);
+                  })
+                }
                 type="button"
               >
                 {INSPECTOR_TAB_LABELS[tab]}
@@ -551,12 +648,29 @@ export function SessionExplorer({
             ))}
           </div>
 
-          <InspectorPanel
-            session={session}
-            iteration={selectedIteration}
-            selectedTension={selectedTension}
-            tab={inspectorTab}
-          />
+          <div className="inspector-summary-card">
+            <div className="panel-block-top">
+              <h3>{INSPECTOR_TAB_LABELS[inspectorTab]}</h3>
+              <span className={`badge ${inspectorFocusOpen ? "badge-live" : "badge-outline"}`}>
+                {inspectorFocusOpen ? "Expanded" : "Minimized"}
+              </span>
+            </div>
+            <p className="muted">{INSPECTOR_TAB_DESCRIPTIONS[inspectorTab]}</p>
+            <dl className="detail-list compact-detail-list">
+              <div>
+                <dt>Signal</dt>
+                <dd>{formatMetric(selectedIteration.metrics.valBpb, 6)}</dd>
+              </div>
+              <div>
+                <dt>Result</dt>
+                <dd>{titleCase(selectedIteration.keepDiscardStatus ?? selectedIteration.outcome, "Observed")}</dd>
+              </div>
+              <div>
+                <dt>Canvas panel</dt>
+                <dd>{inspectorFocusOpen ? "Open in symbolic frame" : "Use any tab to reopen"}</dd>
+              </div>
+            </dl>
+          </div>
         </aside>
       </section>
     </main>

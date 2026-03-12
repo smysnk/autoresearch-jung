@@ -31,16 +31,16 @@ export function SessionGallery({ sessions }: SessionGalleryProps) {
 
   return (
     <main className="page-shell">
-      <section className="hero-panel">
+      <section className="hero-panel hero-panel-landing">
         <div className="hero-copy">
           <p className="eyebrow">Experiment Atlas</p>
-          <h1>Research constellations as a navigable map, not a flat run log.</h1>
+          <h1>Transcend Fn Autoresearch</h1>
           <p className="lead">
             This explorer reads canonical constellations from <code>experiment_logs/</code> and falls back to grouped
             <code>runpod_runs/</code> traces when the deeper symbolic schema is not available yet.
           </p>
         </div>
-        <div className="hero-metrics">
+        <div className="hero-metrics hero-metrics-landing">
           <div className="metric-card accent-thesis">
             <span className="metric-label">Constellations</span>
             <strong>{sessions.length}</strong>

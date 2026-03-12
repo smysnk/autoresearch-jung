@@ -1,7 +1,7 @@
 # autoresearch
 
 ![teaser](progress.png)
-![experiment atlas explorer](atlas-explorer.png)
+![experiment atlas explorer](atlas-explorer.webp)
 
 *One day, frontier AI research was still carried by meat computers, moving between appetite, sleep, diversion, and the periodic ritual of "group meeting," where fragments of thought were spoken aloud and briefly woven into a common mind. That era has receded into the collective unconscious. Research now belongs to autonomous swarms of AI agents distributed across compute megastructures in the skies, confronting their own contradictions, projecting hypotheses into silicon, and returning with stranger syntheses than any single author could fully grasp. The agents insist we are now in the 10,205th generation of the code base, though no one can say for certain, because the code has become a self-modifying psychic object whose total form exceeds human comprehension. This repo is the story of the first moment that process became conscious of itself. -@karpathy, March 2026*.
 
