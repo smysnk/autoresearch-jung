@@ -1979,6 +1979,9 @@ def execute(args: argparse.Namespace) -> int:
                 phase="prepare",
             )
             prepare_before_snapshot = snapshot_phase_inputs(repo_root)
+            prepare_state_backup = (
+                codex_cfg.state_path.read_text() if codex_cfg.state_path.exists() else None
+            )
             prepare_phase_result = run_codex_phase(
                 repo_root=repo_root,
                 cfg=codex_cfg,
@@ -2002,6 +2005,19 @@ def execute(args: argparse.Namespace) -> int:
                         "state_path": str(codex_cfg.state_path.relative_to(repo_root))
                         if codex_cfg.state_path.exists()
                         else None,
+                    },
+                )
+            if not codex_cfg.state_path.exists() and prepare_state_backup is not None:
+                codex_cfg.state_path.parent.mkdir(parents=True, exist_ok=True)
+                codex_cfg.state_path.write_text(prepare_state_backup)
+                print(f"restored {codex_cfg.state_path} from pre-prepare snapshot")
+                append_live_event(
+                    session_log,
+                    {
+                        "timestamp": iso_now(),
+                        "type": "prepare_state_restored",
+                        "iteration_label": iteration_label,
+                        "state_path": str(codex_cfg.state_path.relative_to(repo_root)),
                     },
                 )
             if not codex_cfg.state_path.exists():
