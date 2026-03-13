@@ -1,0 +1,19 @@
+{
+  "captured_at": "2026-03-13T00:24:02Z",
+  "changed_count": 1,
+  "last_message_path": null,
+  "modified_files": [
+    "train.py"
+  ],
+  "patches": [
+    {
+      "patch_path": "patches/train.py.diff.patch",
+      "path": "train.py",
+      "status": "modified"
+    }
+  ],
+  "phase": "prepare",
+  "state_path": "current_iteration.json",
+  "summary": null,
+  "transcript_path": "transcript.log"
+}

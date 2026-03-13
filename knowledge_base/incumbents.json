@@ -82,13 +82,13 @@
     },
     "codex-transcendent-fn-mar12-1927": {
       "confidence": "moderate",
-      "corroboration_count": 2,
-      "experiment_id": "codex-transcendent-fn-mar12-1927:002",
-      "knowledge_ref": "knowledge_base/experiments/codex-transcendent-fn-mar12-1927/002.json",
-      "val_bpb": 1.010328
+      "corroboration_count": 0,
+      "experiment_id": "codex-transcendent-fn-mar12-1927:004",
+      "knowledge_ref": "knowledge_base/experiments/codex-transcendent-fn-mar12-1927/004.json",
+      "val_bpb": 1.001653
     }
   },
-  "generated_at": "2026-03-13T00:20:00Z",
+  "generated_at": "2026-03-13T00:34:20Z",
   "global_best": {
     "adjusted_incumbent_score": 0.996433,
     "confidence": "moderate",
