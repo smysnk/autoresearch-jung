@@ -1,0 +1,37 @@
+--- before/train.py
++++ after/train.py
+@@ -142,7 +142,10 @@
+ 
+ def has_ve(layer_idx, n_layer):
+     """Returns whether this run enables value embeddings for the layer."""
+-    return USE_VALUE_EMBEDDINGS and layer_idx % 2 == (n_layer - 1) % 2
++    if not USE_VALUE_EMBEDDINGS:
++        return False
++    stride = max(1, VALUE_EMBEDDING_STRIDE)
++    return (n_layer - 1 - layer_idx) % stride == 0
+ 
+ 
+ def apply_rotary_emb(x, cos, sin):
+@@ -555,10 +558,11 @@
+ # ---------------------------------------------------------------------------
+ 
+ # Model architecture
+-ASPECT_RATIO = 48       # model_dim = depth * ASPECT_RATIO
++ASPECT_RATIO = 64       # model_dim = depth * ASPECT_RATIO
+ HEAD_DIM = 128          # target head dimension for attention
+ WINDOW_PATTERN = "SSSL" # sliding window pattern: L=full, S=half context
+-USE_VALUE_EMBEDDINGS = False # toggle alternating value embeddings on/off
++USE_VALUE_EMBEDDINGS = True  # toggle token-conditioned value pathways on/off
++VALUE_EMBEDDING_STRIDE = 4   # keep every nth layer, always including the final layer
+ 
+ # Optimization
+ TOTAL_BATCH_SIZE = 2**19 # ~524K tokens per optimizer step
+@@ -573,7 +577,7 @@
+ FINAL_LR_FRAC = 0.0     # final LR as fraction of initial
+ 
+ # Model size
+-DEPTH = 10              # number of transformer layers
++DEPTH = 8               # number of transformer layers
+ DEVICE_BATCH_SIZE = 128  # per-device batch size (reduce if OOM)
+ 
+ # ---------------------------------------------------------------------------

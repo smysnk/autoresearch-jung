@@ -1,0 +1,22 @@
+{
+  "antithesis_source": {
+    "path": "train.py",
+    "type": "current"
+  },
+  "antithesis_summary": "Remove value embeddings and trust plain attention plus residual mixing to optimize more cleanly inside the same 300-second budget.",
+  "antithesis_train_py": "iterations/002/tensions/value-embeddings-vs-simplicity/antithesis/train.py",
+  "created_in_iteration": 2,
+  "favored_side": "thesis",
+  "id": "value-embeddings-vs-simplicity",
+  "kind": "novelty-vs-simplicity",
+  "label": "Value embeddings vs simplicity",
+  "schema_version": 1,
+  "thesis_source": {
+    "path": "experiment_logs/codex-transcendent-fn-mar12-0755/iterations/001/actual/train.py",
+    "type": "path"
+  },
+  "thesis_summary": "Keep alternating value embeddings because the only completed best-in-class run on this axis used them and may have benefited from extra per-token value pathways.",
+  "thesis_train_py": "iterations/002/tensions/value-embeddings-vs-simplicity/thesis/train.py",
+  "updated_in_iteration": 2,
+  "why_active": "The best completed run used alternating value embeddings, while the current branch baseline removes them entirely. This session needs a clean first measurement before deciding whether that roughly 16.8M-parameter novelty was genuinely useful or just short-run clutter."
+}

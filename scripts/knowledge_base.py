@@ -1161,7 +1161,15 @@ def rebuild_knowledge_base(
 def seed_state_with_knowledge_suggestion(state_path: Path, suggestion: dict[str, Any] | None) -> None:
     if suggestion is None:
         return
-    state = read_json(state_path)
+    if state_path.exists():
+        state = read_json(state_path)
+    else:
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+        state = {
+            "active_tensions": [],
+            "result": {},
+            "transcendent": {},
+        }
     state["knowledge_anchor_experiment_id"] = suggestion.get("anchor_experiment_id")
     state["knowledge_opposing_experiment_id"] = suggestion.get("opposing_experiment_id")
     state["knowledge_selection_reason"] = suggestion.get("selection_reason")

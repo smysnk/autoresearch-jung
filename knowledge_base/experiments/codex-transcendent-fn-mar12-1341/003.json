@@ -21,9 +21,15 @@
   "confidence": "moderate",
   "contradicted_assumption": null,
   "contradiction_class": "aggression-vs-stability",
-  "corroborated_by_experiment_ids": [],
-  "corroborates_experiment_ids": [],
-  "corroboration_count": 0,
+  "corroborated_by_experiment_ids": [
+    "codex-transcendent-fn-mar12-1927:001",
+    "codex-transcendent-fn-mar12-1927:002"
+  ],
+  "corroborates_experiment_ids": [
+    "codex-transcendent-fn-mar12-1927:001",
+    "codex-transcendent-fn-mar12-1927:002"
+  ],
+  "corroboration_count": 2,
   "created_at": "2026-03-12T21:22:12Z",
   "default_tension_pair": {
     "anchor_experiment_id": "codex-transcendent-fn-mar12-0755:001",
@@ -41,7 +47,7 @@
   "evidence_strength": 0.75,
   "experiment_id": "codex-transcendent-fn-mar12-1341:003",
   "framing_diagnosis": null,
-  "incumbent_rank": 2,
+  "incumbent_rank": 4,
   "is_incumbent_candidate": true,
   "iteration": 3,
   "iteration_label": "003",
@@ -87,7 +93,10 @@
     "val_bpb": "1.009231"
   },
   "move_type": "negate",
-  "opposes_experiment_ids": [],
+  "opposes_experiment_ids": [
+    "codex-transcendent-fn-mar12-1927:001",
+    "codex-transcendent-fn-mar12-1927:002"
+  ],
   "outcome": null,
   "parent_commit": "ee09166",
   "polarity": {

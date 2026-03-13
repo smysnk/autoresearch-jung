@@ -1,0 +1,29 @@
+{
+  "branch": "codex/transcendent/fn-mar12-1927",
+  "cost_per_hr": 2.69,
+  "execution_id": "20260313T000700Z-autoresearch-exp01",
+  "exit_code": 0,
+  "experiment_index": 1,
+  "gpu_type_ids": [
+    "NVIDIA H100 80GB HBM3",
+    "NVIDIA H100 PCIe",
+    "NVIDIA A100 80GB PCIe",
+    "NVIDIA A100-SXM4-80GB",
+    "NVIDIA H100 NVL"
+  ],
+  "gpu_type_priority": "custom",
+  "metrics": {
+    "depth": "10",
+    "mfu_percent": "39.91",
+    "num_params_M": "39.8",
+    "num_steps": "775",
+    "peak_vram_mb": "53740.2",
+    "total_seconds": "364.1",
+    "total_tokens_M": "406.3",
+    "training_seconds": "300.3",
+    "val_bpb": "1.013615"
+  },
+  "profile": 1,
+  "profile_name": "80GB Stable",
+  "selected_gpu_type": "NVIDIA H100 80GB HBM3"
+}

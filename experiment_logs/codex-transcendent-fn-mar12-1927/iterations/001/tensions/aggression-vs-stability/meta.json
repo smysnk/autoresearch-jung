@@ -1,0 +1,21 @@
+{
+  "antithesis_source": {
+    "type": "inline"
+  },
+  "antithesis_summary": "Trade some early speed for cleaner convergence with lower Adam rates, a slightly lower Muon LR, and a short warmup.",
+  "antithesis_train_py": "iterations/001/tensions/aggression-vs-stability/antithesis/train.py",
+  "created_in_iteration": 1,
+  "favored_side": "thesis",
+  "id": "aggression-vs-stability",
+  "kind": "optimization-speed-vs-stability",
+  "label": "Aggression vs stability",
+  "schema_version": 1,
+  "thesis_source": {
+    "path": "train.py",
+    "type": "current"
+  },
+  "thesis_summary": "Keep the aggressive short-horizon optimizer settings because the harness rewards early movement and the first run should avoid extra confounders.",
+  "thesis_train_py": "iterations/001/tensions/aggression-vs-stability/thesis/train.py",
+  "updated_in_iteration": 1,
+  "why_active": "The plain baseline keeps the same no-warmup, high-LR sprint schedule, but a simpler model may want a different optimizer temperament than the historical value-embedding winner. This remains unresolved until the branch has one clean unchanged baseline run."
+}

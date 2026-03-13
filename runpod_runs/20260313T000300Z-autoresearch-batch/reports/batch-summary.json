@@ -1,0 +1,56 @@
+{
+  "branch": "codex/transcendent/fn-mar12-1927",
+  "completed_experiments": 3,
+  "experiment_count": 3,
+  "name_prefix": "autoresearch",
+  "records": [
+    {
+      "execution_dir": "/Users/josh/play/autoresearch/runpod_runs/20260313T000700Z-autoresearch-exp01",
+      "exit_code": 0,
+      "experiment_index": 1,
+      "summary": {
+        "depth": "10",
+        "mfu_percent": "39.91",
+        "num_params_M": "39.8",
+        "num_steps": "775",
+        "peak_vram_mb": "53740.2",
+        "total_seconds": "364.1",
+        "total_tokens_M": "406.3",
+        "training_seconds": "300.3",
+        "val_bpb": "1.013615"
+      }
+    },
+    {
+      "execution_dir": "/Users/josh/play/autoresearch/runpod_runs/20260313T002402Z-autoresearch-exp02",
+      "exit_code": 0,
+      "experiment_index": 2,
+      "summary": {
+        "depth": "8",
+        "mfu_percent": "38.71",
+        "num_params_M": "41.9",
+        "num_steps": "927",
+        "peak_vram_mb": "44480.2",
+        "total_seconds": "362.2",
+        "total_tokens_M": "486.0",
+        "training_seconds": "300.1",
+        "val_bpb": "1.001653"
+      }
+    },
+    {
+      "execution_dir": "/Users/josh/play/autoresearch/runpod_runs/20260313T003822Z-autoresearch-exp03",
+      "exit_code": 0,
+      "experiment_index": 3,
+      "summary": {
+        "depth": "8",
+        "mfu_percent": "38.47",
+        "num_params_M": "41.9",
+        "num_steps": "922",
+        "peak_vram_mb": "44480.2",
+        "total_seconds": "331.5",
+        "total_tokens_M": "483.4",
+        "training_seconds": "300.3",
+        "val_bpb": "1.001533"
+      }
+    }
+  ]
+}

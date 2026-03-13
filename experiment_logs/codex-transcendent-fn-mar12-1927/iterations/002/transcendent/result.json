@@ -1,0 +1,13 @@
+{
+  "antithesis_ref": "value-embeddings-vs-simplicity:antithesis",
+  "concrete_change": "Keep `USE_VALUE_EMBEDDINGS = False`, set `DEPTH = 10`, and lower `ASPECT_RATIO` to 48 so the branch tests deeper plain capacity as the third option.",
+  "emergent_thought": "If the plain baseline survives but gives back a little quality, the most plausible repair is to turn some of the removed novelty budget into extra ordinary depth rather than restoring the full value-embedding mechanism.",
+  "result_status": "proposed",
+  "schema_version": 1,
+  "source_tension_ids": [
+    "capacity-vs-throughput",
+    "value-embeddings-vs-simplicity"
+  ],
+  "tested_in_iteration": false,
+  "thesis_ref": "capacity-vs-throughput:thesis"
+}

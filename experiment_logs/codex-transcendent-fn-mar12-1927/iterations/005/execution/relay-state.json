@@ -1,0 +1,31 @@
+{
+  "current_gpu": {
+    "mem_util_percent": 0.0,
+    "memory_total_mb": 81559.0,
+    "memory_used_mb": 49052.0,
+    "power_w": 133.94,
+    "sampled_at": "2026-03-13T00:44:13Z",
+    "temp_c": 47.0,
+    "util_percent": 0.0
+  },
+  "current_progress": {
+    "gpu_memory_util_percent": 1.0,
+    "gpu_util_percent": 3.0,
+    "mfu_percent_instant": 38.47,
+    "peak_vram_mb": 44480.2,
+    "power_w": 319.62,
+    "progress_pct": 100,
+    "remaining_seconds": 0,
+    "step": 922,
+    "temp_c": 50.0,
+    "training_seconds_elapsed": 300.3,
+    "val_bpb": 1.001533
+  },
+  "event_count": 245,
+  "input_path": "/root/autoresearch/branches/codex-transcendent-fn-mar12-1927/live/train-events.ndjson",
+  "last_event_type": "run_summary",
+  "output_path": "/root/autoresearch/branches/codex-transcendent-fn-mar12-1927/live/relay-events.ndjson",
+  "started_at": "2026-03-13T00:38:37Z",
+  "status": "stopped",
+  "updated_at": "2026-03-13T00:44:13Z"
+}

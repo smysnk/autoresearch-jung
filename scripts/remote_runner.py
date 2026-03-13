@@ -450,7 +450,8 @@ def run_command(cfg: RemoteConfig, args: argparse.Namespace) -> int:
         experiment_index=next_experiment_index,
         phase="prepare",
     )
-    run_codex_phase(
+    prepare_state_backup = codex_cfg.state_path.read_text() if codex_cfg.state_path.exists() else None
+    prepare_result = run_codex_phase(
         repo_root=cfg.repo_root,
         cfg=codex_cfg,
         runner_mode="remote",
@@ -462,6 +463,14 @@ def run_command(cfg: RemoteConfig, args: argparse.Namespace) -> int:
         baseline_run=baseline_run,
         knowledge_suggestion=knowledge_suggestion,
     )
+    if prepare_result.timed_out:
+        print(f"Codex prepare timed out; continuing with {codex_cfg.state_path}")
+    if not codex_cfg.state_path.exists() and prepare_state_backup is not None:
+        codex_cfg.state_path.parent.mkdir(parents=True, exist_ok=True)
+        codex_cfg.state_path.write_text(prepare_state_backup)
+        print(f"restored {codex_cfg.state_path} from pre-prepare snapshot")
+    if not codex_cfg.state_path.exists():
+        raise SystemExit(f"Codex prepare did not leave {codex_cfg.state_path} behind; aborting before deployment.")
     parent_commit = git_stdout(cfg.repo_root, ["rev-parse", "--short", "HEAD"])
     pre_commit = commit_nonignored_changes(
         cfg.repo_root,

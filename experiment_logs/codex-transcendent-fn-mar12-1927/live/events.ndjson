@@ -1,0 +1,43 @@
+{"experiment_count": 5, "experiment_index": 1, "iteration_label": "001", "timestamp": "2026-03-12T23:27:01Z", "type": "prepare_started"}
+{"iteration_label": "001", "modified_files": ["research_state/current_iteration.json"], "summary": "Prepared the required baseline state in [current_iteration.json](/Users/josh/play/autoresearch/research_state/current_iteration.json). The planned move is `exploit`: run the current `train.py` unchanged as the branch-local baseline, anchored against `codex-transcendent-fn-mar12-0755:001` (`val_bpb=0.996233`). The active tensions now reflect the actual embodied code on this branch: plain 8-layer `SSSL`, `USE_VALUE_EMBEDDINGS = False`, versus the archived value-embedding incumbent and its main follow-up oppositions.", "timestamp": "2026-03-12T23:30:56Z", "type": "prepare_completed"}
+{"experiment_index": 1, "iteration_label": "001", "timestamp": "2026-03-12T23:31:32Z", "type": "deploy_started"}
+{"execution_id": "20260312T233056Z-autoresearch-exp01", "iteration_label": "001", "timestamp": "2026-03-12T23:33:19Z", "type": "train_started"}
+{"iteration_label": "001", "timestamp": "2026-03-12T23:39:45Z", "type": "reflect_started"}
+{"iteration_label": "001", "state_path": "research_state/current_iteration.json", "timestamp": "2026-03-12T23:42:45Z", "type": "reflect_timeout"}
+{"contradicted_assumption": null, "experiment_index": 1, "framing_diagnosis": null, "iteration_label": "001", "keep_discard_status": null, "next_move_type": null, "outcome": null, "reflect_changes": {"modified_files": [], "summary": null}, "runner_phase": "reflect_complete", "timestamp": "2026-03-12T23:42:45Z", "transcendent_result": {"emergent_thought": "If the plain baseline survives but gives back a little quality, the most plausible repair is to turn some of the removed novelty budget into extra ordinary depth rather than restoring the full value-embedding mechanism.", "result_status": "proposed"}, "type": "reflection_completed"}
+{"experiment_count": 5, "experiment_index": 2, "iteration_label": "002", "timestamp": "2026-03-12T23:42:47Z", "type": "prepare_started"}
+{"iteration_label": "002", "state_path": "research_state/current_iteration.json", "timestamp": "2026-03-12T23:46:47Z", "type": "prepare_timeout"}
+{"iteration_label": "002", "modified_files": [], "summary": null, "timestamp": "2026-03-12T23:46:47Z", "type": "prepare_completed"}
+{"experiment_index": 2, "iteration_label": "002", "timestamp": "2026-03-12T23:46:48Z", "type": "deploy_started"}
+{"execution_id": "20260312T234647Z-autoresearch-exp02", "iteration_label": "002", "timestamp": "2026-03-12T23:46:53Z", "type": "train_started"}
+{"iteration_label": "002", "timestamp": "2026-03-12T23:53:03Z", "type": "reflect_started"}
+{"iteration_label": "002", "state_path": "research_state/current_iteration.json", "timestamp": "2026-03-12T23:56:03Z", "type": "reflect_timeout"}
+{"contradicted_assumption": null, "experiment_index": 2, "framing_diagnosis": null, "iteration_label": "002", "keep_discard_status": null, "next_move_type": null, "outcome": null, "reflect_changes": {"modified_files": [], "summary": null}, "runner_phase": "reflect_complete", "timestamp": "2026-03-12T23:56:03Z", "transcendent_result": {"emergent_thought": "If the plain baseline survives but gives back a little quality, the most plausible repair is to turn some of the removed novelty budget into extra ordinary depth rather than restoring the full value-embedding mechanism.", "result_status": "proposed"}, "type": "reflection_completed"}
+{"experiment_count": 5, "experiment_index": 3, "iteration_label": "003", "timestamp": "2026-03-12T23:56:06Z", "type": "prepare_started"}
+{"iteration_label": "003", "state_path": null, "timestamp": "2026-03-13T00:00:06Z", "type": "prepare_timeout"}
+{"phase": "completed", "status": "completed", "timestamp": "2026-03-13T00:00:06Z", "type": "live_state_closed"}
+{"experiment_count": 3, "experiment_index": 1, "iteration_label": "003", "timestamp": "2026-03-13T00:03:00Z", "type": "prepare_started"}
+{"iteration_label": "003", "state_path": "research_state/current_iteration.json", "timestamp": "2026-03-13T00:07:00Z", "type": "prepare_timeout"}
+{"iteration_label": "003", "modified_files": [], "summary": null, "timestamp": "2026-03-13T00:07:00Z", "type": "prepare_completed"}
+{"experiment_index": 1, "iteration_label": "003", "timestamp": "2026-03-13T00:07:38Z", "type": "deploy_started"}
+{"execution_id": "20260313T000700Z-autoresearch-exp01", "iteration_label": "003", "timestamp": "2026-03-13T00:09:33Z", "type": "train_started"}
+{"iteration_label": "003", "timestamp": "2026-03-13T00:16:59Z", "type": "reflect_started"}
+{"iteration_label": "003", "state_path": "research_state/current_iteration.json", "timestamp": "2026-03-13T00:19:59Z", "type": "reflect_timeout"}
+{"contradicted_assumption": null, "experiment_index": 1, "framing_diagnosis": null, "iteration_label": "003", "keep_discard_status": null, "next_move_type": null, "outcome": null, "reflect_changes": {"modified_files": [], "summary": null}, "runner_phase": "reflect_complete", "timestamp": "2026-03-13T00:19:59Z", "transcendent_result": {"emergent_thought": null, "result_status": null}, "type": "reflection_completed"}
+{"experiment_count": 3, "experiment_index": 2, "iteration_label": "004", "timestamp": "2026-03-13T00:20:02Z", "type": "prepare_started"}
+{"iteration_label": "004", "state_path": "research_state/current_iteration.json", "timestamp": "2026-03-13T00:24:02Z", "type": "prepare_timeout"}
+{"iteration_label": "004", "modified_files": ["train.py"], "summary": null, "timestamp": "2026-03-13T00:24:02Z", "type": "prepare_completed"}
+{"experiment_index": 2, "iteration_label": "004", "timestamp": "2026-03-13T00:24:03Z", "type": "deploy_started"}
+{"execution_id": "20260313T002402Z-autoresearch-exp02", "iteration_label": "004", "timestamp": "2026-03-13T00:24:16Z", "type": "train_started"}
+{"iteration_label": "004", "timestamp": "2026-03-13T00:31:19Z", "type": "reflect_started"}
+{"iteration_label": "004", "state_path": "research_state/current_iteration.json", "timestamp": "2026-03-13T00:34:19Z", "type": "reflect_timeout"}
+{"contradicted_assumption": null, "experiment_index": 2, "framing_diagnosis": null, "iteration_label": "004", "keep_discard_status": null, "next_move_type": null, "outcome": null, "reflect_changes": {"modified_files": [], "summary": null}, "runner_phase": "reflect_complete", "timestamp": "2026-03-13T00:34:19Z", "transcendent_result": {"emergent_thought": null, "result_status": null}, "type": "reflection_completed"}
+{"experiment_count": 3, "experiment_index": 3, "iteration_label": "005", "timestamp": "2026-03-13T00:34:21Z", "type": "prepare_started"}
+{"iteration_label": "005", "state_path": "research_state/current_iteration.json", "timestamp": "2026-03-13T00:38:21Z", "type": "prepare_timeout"}
+{"iteration_label": "005", "modified_files": [], "summary": null, "timestamp": "2026-03-13T00:38:21Z", "type": "prepare_completed"}
+{"experiment_index": 3, "iteration_label": "005", "timestamp": "2026-03-13T00:38:23Z", "type": "deploy_started"}
+{"execution_id": "20260313T003822Z-autoresearch-exp03", "iteration_label": "005", "timestamp": "2026-03-13T00:38:37Z", "type": "train_started"}
+{"iteration_label": "005", "timestamp": "2026-03-13T00:45:43Z", "type": "reflect_started"}
+{"iteration_label": "005", "state_path": "research_state/current_iteration.json", "timestamp": "2026-03-13T00:48:43Z", "type": "reflect_timeout"}
+{"contradicted_assumption": null, "experiment_index": 3, "framing_diagnosis": null, "iteration_label": "005", "keep_discard_status": null, "next_move_type": null, "outcome": null, "reflect_changes": {"modified_files": [], "summary": null}, "runner_phase": "reflect_complete", "timestamp": "2026-03-13T00:48:43Z", "transcendent_result": {"emergent_thought": null, "result_status": null}, "type": "reflection_completed"}
+{"phase": "completed", "status": "completed", "timestamp": "2026-03-13T00:48:47Z", "type": "live_state_closed"}

@@ -3,56 +3,63 @@
   "best_per_axis": {
     "aggression-vs-stability": {
       "confidence": "moderate",
-      "corroboration_count": 0,
+      "corroboration_count": 2,
       "experiment_id": "codex-transcendent-fn-mar12-1341:003",
       "knowledge_ref": "knowledge_base/experiments/codex-transcendent-fn-mar12-1341/003.json",
       "val_bpb": 1.009231
     },
     "capacity-vs-throughput": {
       "confidence": "moderate",
-      "corroboration_count": 0,
+      "corroboration_count": 2,
       "experiment_id": "codex-transcendent-fn-mar12-1341:003",
       "knowledge_ref": "knowledge_base/experiments/codex-transcendent-fn-mar12-1341/003.json",
       "val_bpb": 1.009231
     },
     "inductive-bias-vs-coverage": {
       "confidence": "moderate",
-      "corroboration_count": 0,
+      "corroboration_count": 2,
       "experiment_id": "codex-transcendent-fn-mar12-1341:003",
       "knowledge_ref": "knowledge_base/experiments/codex-transcendent-fn-mar12-1341/003.json",
       "val_bpb": 1.009231
     },
     "locality-vs-global-context": {
       "confidence": "moderate",
-      "corroboration_count": 0,
+      "corroboration_count": 2,
       "experiment_id": "codex-transcendent-fn-mar12-1341:003",
       "knowledge_ref": "knowledge_base/experiments/codex-transcendent-fn-mar12-1341/003.json",
       "val_bpb": 1.009231
     },
     "memory-vs-quality": {
       "confidence": "moderate",
-      "corroboration_count": 0,
+      "corroboration_count": 2,
       "experiment_id": "codex-transcendent-fn-mar12-1341:003",
       "knowledge_ref": "knowledge_base/experiments/codex-transcendent-fn-mar12-1341/003.json",
       "val_bpb": 1.009231
     },
     "novelty-vs-simplicity": {
       "confidence": "moderate",
-      "corroboration_count": 0,
+      "corroboration_count": 2,
       "experiment_id": "codex-transcendent-fn-mar12-1341:003",
       "knowledge_ref": "knowledge_base/experiments/codex-transcendent-fn-mar12-1341/003.json",
       "val_bpb": 1.009231
     },
     "optimization-speed-vs-stability": {
       "confidence": "moderate",
-      "corroboration_count": 0,
+      "corroboration_count": 2,
       "experiment_id": "codex-transcendent-fn-mar12-1341:003",
       "knowledge_ref": "knowledge_base/experiments/codex-transcendent-fn-mar12-1341/003.json",
       "val_bpb": 1.009231
     },
+    "short-run-gain-vs-long-run-extensibility": {
+      "confidence": "moderate",
+      "corroboration_count": 2,
+      "experiment_id": "codex-transcendent-fn-mar12-1927:002",
+      "knowledge_ref": "knowledge_base/experiments/codex-transcendent-fn-mar12-1927/002.json",
+      "val_bpb": 1.010328
+    },
     "value-embeddings-vs-simplicity": {
       "confidence": "moderate",
-      "corroboration_count": 0,
+      "corroboration_count": 2,
       "experiment_id": "codex-transcendent-fn-mar12-1341:003",
       "knowledge_ref": "knowledge_base/experiments/codex-transcendent-fn-mar12-1341/003.json",
       "val_bpb": 1.009231
@@ -68,13 +75,20 @@
     },
     "codex-transcendent-fn-mar12-1341": {
       "confidence": "moderate",
-      "corroboration_count": 0,
+      "corroboration_count": 2,
       "experiment_id": "codex-transcendent-fn-mar12-1341:003",
       "knowledge_ref": "knowledge_base/experiments/codex-transcendent-fn-mar12-1341/003.json",
       "val_bpb": 1.009231
+    },
+    "codex-transcendent-fn-mar12-1927": {
+      "confidence": "moderate",
+      "corroboration_count": 0,
+      "experiment_id": "codex-transcendent-fn-mar12-1927:005",
+      "knowledge_ref": "knowledge_base/experiments/codex-transcendent-fn-mar12-1927/005.json",
+      "val_bpb": 1.001533
     }
   },
-  "generated_at": "2026-03-12T21:34:20Z",
+  "generated_at": "2026-03-13T00:48:44Z",
   "global_best": {
     "adjusted_incumbent_score": 0.996433,
     "confidence": "moderate",
