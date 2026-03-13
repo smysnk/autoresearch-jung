@@ -75,6 +75,10 @@ a {
   color: inherit;
 }
 
+button {
+  color: inherit;
+}
+
 code,
 pre,
 button,
@@ -884,6 +888,7 @@ select {
 }
 
 .session-focus-panel-live {
+  min-height: 242px;
   border-color: rgba(255, 127, 80, 0.18);
   box-shadow:
     inset 0 0 0 1px rgba(255, 127, 80, 0.06),
@@ -1359,6 +1364,7 @@ select {
   cursor: pointer;
   position: relative;
   overflow: hidden;
+  color: var(--atlas-ink);
 }
 
 .stratigraphy-layer-active {
@@ -1371,6 +1377,11 @@ select {
 .stratigraphy-layer h3,
 .film-card p {
   margin: 0;
+}
+
+.stratigraphy-layer p {
+  margin: 0;
+  color: color-mix(in srgb, var(--atlas-ink) 86%, var(--atlas-muted) 14%);
 }
 
 .stratigraphy-meta {
