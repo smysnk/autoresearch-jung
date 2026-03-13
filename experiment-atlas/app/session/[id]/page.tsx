@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { SessionExplorer } from "@/components/SessionExplorer";
-import { getSessionGraph } from "@/lib/atlas-data";
+import { getAllSessionIds, getSessionGraph } from "@/lib/atlas-data";
 
 type SessionPageProps = {
   params: Promise<{
@@ -9,7 +9,11 @@ type SessionPageProps = {
   }>;
 };
 
-export const dynamic = "force-dynamic";
+export const dynamicParams = false;
+
+export function generateStaticParams() {
+  return getAllSessionIds().map((id) => ({ id }));
+}
 
 export default async function SessionPage({ params }: SessionPageProps) {
   const { id } = await params;

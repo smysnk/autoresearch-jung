@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "NODE_ENV=development node server.js --dev",
     "build": "next build",
+    "build:pages": "ATLAS_STATIC_EXPORT=1 NEXT_PUBLIC_ATLAS_STATIC_EXPORT=1 next build",
     "start": "NODE_ENV=production node server.js",
     "lint": "next lint"
   },

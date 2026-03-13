@@ -1,22 +1,24 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
+import { CompareExplorer } from "@/components/CompareExplorer";
 import { SessionExplorer } from "@/components/SessionExplorer";
-import { getSessionGraph } from "@/lib/atlas-data";
+import { getAllSessionIds, getSessionGraph } from "@/lib/atlas-data";
 
 type ComparePageProps = {
   params: Promise<{
     id: string;
   }>;
-  searchParams?: Promise<{
-    tension?: string;
-  }>;
 };
 
-export const dynamic = "force-dynamic";
+export const dynamicParams = false;
 
-export default async function ComparePage({ params, searchParams }: ComparePageProps) {
+export function generateStaticParams() {
+  return getAllSessionIds().map((id) => ({ id }));
+}
+
+export default async function ComparePage({ params }: ComparePageProps) {
   const { id } = await params;
-  const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const session = getSessionGraph(id);
 
   if (!session) {
@@ -24,10 +26,8 @@ export default async function ComparePage({ params, searchParams }: ComparePageP
   }
 
   return (
-    <SessionExplorer
-      session={session}
-      focusTensionId={resolvedSearchParams?.tension}
-      initialMode="mirror"
-    />
+    <Suspense fallback={<SessionExplorer session={session} initialMode="mirror" />}>
+      <CompareExplorer session={session} />
+    </Suspense>
   );
 }

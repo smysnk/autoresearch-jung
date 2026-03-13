@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { SessionExplorer } from "@/components/SessionExplorer";
-import { getSessionGraph } from "@/lib/atlas-data";
+import { getAllSessionIds, getIterationLabels, getSessionGraph } from "@/lib/atlas-data";
 
 type IterationPageProps = {
   params: Promise<{
@@ -10,7 +10,16 @@ type IterationPageProps = {
   }>;
 };
 
-export const dynamic = "force-dynamic";
+export const dynamicParams = false;
+
+export function generateStaticParams() {
+  return getAllSessionIds().flatMap((id) =>
+    getIterationLabels(id).map((iteration) => ({
+      id,
+      iteration,
+    })),
+  );
+}
 
 export default async function IterationPage({ params }: IterationPageProps) {
   const { id, iteration } = await params;

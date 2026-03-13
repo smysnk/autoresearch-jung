@@ -1,0 +1,71 @@
+name: Deploy Experiment Atlas to GitHub Pages
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+      - ".github/workflows/experiment-atlas-pages.yml"
+      - "experiment-atlas/**"
+      - "experiment_logs/**"
+      - "knowledge_base/**"
+      - "runpod_runs/**"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: experiment-atlas-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: experiment-atlas/package-lock.json
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Install Atlas dependencies
+        working-directory: experiment-atlas
+        run: npm ci
+
+      - name: Build static Atlas snapshot
+        working-directory: experiment-atlas
+        env:
+          AUTORESEARCH_REPO_ROOT: ${{ github.workspace }}
+          ATLAS_STATIC_EXPORT: "1"
+          NEXT_PUBLIC_ATLAS_STATIC_EXPORT: "1"
+          ATLAS_BASE_PATH: /${{ github.event.repository.name }}
+        run: npm run build:pages
+
+      - name: Preserve static asset routing
+        run: touch experiment-atlas/out/.nojekyll
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: experiment-atlas/out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

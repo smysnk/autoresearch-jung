@@ -2,6 +2,7 @@ import "server-only";
 
 import fs from "node:fs";
 import path from "node:path";
+import { unstable_noStore as noStore } from "next/cache";
 
 import type {
   CodexPhaseArtifact,
@@ -26,6 +27,13 @@ type KnowledgeBundle = {
   sessionSummaries: Map<string, JsonRecord>;
   incumbents: JsonRecord | null;
 };
+
+function applyRequestCachingPolicy(): void {
+  if (process.env.ATLAS_STATIC_EXPORT === "1") {
+    return;
+  }
+  noStore();
+}
 
 function getRepoRoot(): string {
   if (process.env.AUTORESEARCH_REPO_ROOT) {
@@ -1145,10 +1153,23 @@ function loadRunpodSessions(): SessionGraph[] {
 }
 
 export function getAllSessions(): SessionGraph[] {
+  applyRequestCachingPolicy();
   const experimentSessions = loadExperimentLogSessions();
   const canonicalBranches = new Set(experimentSessions.map((session) => session.branch));
   const runpodSessions = loadRunpodSessions().filter((session) => !canonicalBranches.has(session.branch));
   return [...experimentSessions, ...runpodSessions];
+}
+
+export function getAllSessionIds(): string[] {
+  return getAllSessions().map((session) => session.id);
+}
+
+export function getIterationLabels(sessionId: string): string[] {
+  const session = getSessionGraph(sessionId);
+  if (!session) {
+    return [];
+  }
+  return session.iterations.map((iteration) => iteration.label);
 }
 
 export function getSessionGraph(sessionId: string): SessionGraph | null {

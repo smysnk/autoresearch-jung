@@ -31,11 +31,13 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const isStaticExport = process.env.NEXT_PUBLIC_ATLAS_STATIC_EXPORT === "1";
+
   return (
     <html lang="en">
       <body className={`atlas-body ${displayFont.variable} ${bodyFont.variable} ${monoFont.variable}`}>
         <div className="atlas-backdrop" />
-        <AtlasLiveRefresh />
+        {!isStaticExport ? <AtlasLiveRefresh /> : null}
         {children}
       </body>
     </html>

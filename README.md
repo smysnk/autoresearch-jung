@@ -1,5 +1,7 @@
 # transcendent fn autoresearch
 
+[Static demo](https://smysnk.github.io/autoresearch/)
+
 ![experiment atlas explorer](explorer-atlas.webp)
 ![teaser](progress.png)
 

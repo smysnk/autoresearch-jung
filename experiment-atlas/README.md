@@ -76,6 +76,26 @@ cd experiment-atlas
 AUTORESEARCH_REPO_ROOT=/absolute/path/to/autoresearch npm run dev
 ```
 
+## GitHub Pages
+
+The repo now includes a GitHub Actions workflow at
+[`/.github/workflows/experiment-atlas-pages.yml`](/Users/josh/play/autoresearch/.github/workflows/experiment-atlas-pages.yml)
+that publishes a static Atlas snapshot to GitHub Pages on pushes to `master`
+and on manual dispatch.
+
+The Pages build:
+
+- reads the repository data from `experiment_logs/`, `runpod_runs/`, and `knowledge_base/`
+- prerenders the known session routes into static HTML
+- disables the live websocket refresh client, because GitHub Pages serves a snapshot rather than a live backend
+
+You can reproduce that build locally with:
+
+```bash
+cd experiment-atlas
+AUTORESEARCH_REPO_ROOT=/absolute/path/to/autoresearch npm run build:pages
+```
+
 ## Notes
 
 - This app is read-only. It does not launch experiments or modify session data.
