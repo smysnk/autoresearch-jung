@@ -1,9 +1,9 @@
 {
   "active_tensions": [],
   "knowledge_anchor_experiment_id": "codex-transcendent-fn-mar12-0755:001",
-  "knowledge_opposing_experiment_id": "codex-transcendent-fn-mar12-1341:003",
-  "knowledge_selection_reason": "Selected codex-transcendent-fn-mar12-1341:003 because it overlaps on aggression-vs-stability, capacity-vs-throughput, inductive-bias-vs-coverage, locality-vs-global-context, memory-vs-quality, novelty-vs-simplicity, optimization-speed-vs-stability, value-embeddings-vs-simplicity while pushing against the incumbent on an inferred opposing posture. It is corroborated by 2 related experiments.",
-  "knowledge_transcendent_prediction": "Hold the incumbent strength from codex-transcendent-fn-mar12-0755:001 against the opposing evidence from codex-transcendent-fn-mar12-1341:003 on aggression-vs-stability, capacity-vs-throughput, inductive-bias-vs-coverage, locality-vs-global-context, memory-vs\u2026",
+  "knowledge_opposing_experiment_id": null,
+  "knowledge_selection_reason": "No prior experiment shared enough axis context with the incumbent to form a meaningful opposition.",
+  "knowledge_transcendent_prediction": null,
   "result": {},
   "transcendent": {}
 }
