@@ -5,8 +5,8 @@
   "execution_id": "20260313T003822Z-autoresearch-exp03",
   "experiment_count": 3,
   "experiment_index": 3,
-  "is_active": true,
-  "phase": "reflect_complete",
+  "is_active": false,
+  "phase": "completed",
   "prepare": {
     "captured_at": "2026-03-13T00:38:21Z",
     "changed_count": 0,
@@ -34,7 +34,7 @@
   "runner_mode": "runpod",
   "schema_version": 1,
   "session_id": "codex-transcendent-fn-mar12-1927",
-  "status": "reflect_complete",
+  "status": "completed",
   "telemetry_events_path": "/Users/josh/play/autoresearch/runpod_runs/20260313T003822Z-autoresearch-exp03/artifacts/live/relay-events.ndjson",
-  "updated_at": "2026-03-13T00:48:43Z"
+  "updated_at": "2026-03-13T00:48:47Z"
 }
