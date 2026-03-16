@@ -32,6 +32,7 @@ runpod_runs/*/logs/
 runpod_runs/*/metadata/
 runpod.json
 .env
+.test-results/
 
 # Yarn-generated state
 **/.yarn/cache/

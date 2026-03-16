@@ -1,0 +1,30 @@
+{
+  "rules": [
+    {
+      "package": "ci",
+      "include": ["tests/**/*.test.mjs"],
+      "module": "ci-reporting",
+      "theme": "verification"
+    },
+    {
+      "package": "runtime",
+      "include": ["scripts/check_python_sources.py"],
+      "module": "runner",
+      "theme": "python"
+    },
+    {
+      "package": "experiment-atlas",
+      "include": ["experiment-atlas/**"],
+      "module": "atlas",
+      "theme": "build"
+    }
+  ],
+  "coverageRules": [
+    {
+      "package": "ci",
+      "include": ["scripts/ingest_report_utils.mjs", "tests/**/*.test.mjs"],
+      "module": "ci-reporting",
+      "theme": "verification"
+    }
+  ]
+}

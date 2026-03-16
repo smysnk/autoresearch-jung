@@ -27,6 +27,16 @@ In more Jungian terms, `train.py` is the present embodied attitude of the resear
 
 If you are new to neural networks, this ["Dummy's Guide"](https://x.com/hooeem/status/2030720614752039185) looks pretty good for a lot more context.
 
+## CI reporting
+
+GitHub Actions now runs this repo through `test-station` using [`.github/workflows/test-station.yml`](/Users/josh/play/autoresearch/.github/workflows/test-station.yml). The current Test Station suite checks:
+
+- Python source compilation for the core entrypoints and runner scripts
+- `experiment-atlas` lint
+- the static GitHub Pages Atlas build
+
+Every CI run uploads the generated Test Station report as a GitHub artifact and, when `TEST_STATION_INGEST_SHARED_KEY` is configured, publishes the normalized report to [test-station.smysnk.com](https://test-station.smysnk.com). The local config lives in [test-station.config.mjs](/Users/josh/play/autoresearch/test-station.config.mjs).
+
 ## Quick start
 
 **Requirements:** A single NVIDIA GPU (tested on H100), Python 3.10+, [uv](https://docs.astral.sh/uv/).

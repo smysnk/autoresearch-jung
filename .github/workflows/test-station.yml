@@ -1,0 +1,99 @@
+name: Test Station CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test-station:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set build start timestamp
+        shell: bash
+        run: |
+          echo "TEST_STATION_BUILD_STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: experiment-atlas/package-lock.json
+
+      - name: Install Experiment Atlas dependencies
+        working-directory: experiment-atlas
+        run: npm ci
+
+      - name: Run Test Station checks
+        id: test_station
+        continue-on-error: true
+        shell: bash
+        run: |
+          mkdir -p ./.test-results
+          set +e
+          npx --yes @test-station/cli@0.2.33 run --config ./test-station.config.mjs --coverage --output-dir ./.test-results/ci-report 2>&1 | tee ./.test-results/test-station.log
+          exit_code=${PIPESTATUS[0]}
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+          echo "log_path=.test-results/test-station.log" >> "$GITHUB_OUTPUT"
+          exit "$exit_code"
+
+      - name: Upload Test Station report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-station-report
+          path: ./.test-results/ci-report
+          if-no-files-found: warn
+
+      - name: Publish report to test-station
+        if: always()
+        shell: bash
+        env:
+          TEST_STATION_INGEST_ENDPOINT: https://test-station.smysnk.com/api/ingest
+          TEST_STATION_INGEST_PROJECT_KEY: ${{ github.event.repository.name }}
+          TEST_STATION_INGEST_SHARED_KEY: ${{ secrets.TEST_STATION_INGEST_SHARED_KEY }}
+        run: |
+          if [ ! -f ./.test-results/ci-report/report.json ]; then
+            echo "Skipping ingest publish because ./.test-results/ci-report/report.json is missing."
+            exit 0
+          fi
+          if [ -z "$TEST_STATION_INGEST_SHARED_KEY" ]; then
+            echo "Skipping ingest publish because TEST_STATION_INGEST_SHARED_KEY is not set."
+            exit 0
+          fi
+          if [ "${{ steps.test_station.outputs.exit_code }}" = "0" ]; then
+            export TEST_STATION_CI_STATUS=passed
+          else
+            export TEST_STATION_CI_STATUS=failed
+          fi
+          export TEST_STATION_BUILD_COMPLETED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          node ./scripts/publish-test-station-report.mjs --input ./.test-results/ci-report/report.json
+
+      - name: Assert checks passed
+        if: always()
+        shell: bash
+        run: |
+          if [ "${{ steps.test_station.outputs.exit_code }}" = "0" ]; then
+            exit 0
+          fi
+          echo "Test Station checks failed. Captured log:"
+          if [ -f "${{ steps.test_station.outputs.log_path }}" ]; then
+            cat "${{ steps.test_station.outputs.log_path }}"
+          else
+            echo "No test log found at ${{ steps.test_station.outputs.log_path }}"
+          fi
+          exit 1
