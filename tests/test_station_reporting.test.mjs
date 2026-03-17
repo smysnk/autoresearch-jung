@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 import {
   buildGitHubSourceContext,
@@ -83,19 +86,65 @@ test("buildGitHubSourceContext honors manual override metadata", () => {
 });
 
 test("createIngestPayload includes artifact inventory and source metadata", () => {
-  const payload = createIngestPayload({
-    reportPath: `${repoRoot}.test-results/ci-report/report.json`,
-    projectKey: "autoresearch-jung",
-    outputDir: `${repoRoot}.test-results/ci-report`,
-    buildStartedAt: "2026-03-16T05:00:00Z",
-    buildCompletedAt: "2026-03-16T05:00:12Z",
-    buildNumber: 902,
-    repoRoot,
-  });
+  const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), "autoresearch-test-station-"));
+  try {
+    const reportPath = path.join(outputDir, "report.json");
+    const rawDir = path.join(outputDir, "raw");
+    fs.mkdirSync(rawDir, { recursive: true });
+    fs.writeFileSync(
+      reportPath,
+      JSON.stringify(
+        {
+          summary: {
+            totalPackages: 1,
+            totalSuites: 1,
+            totalTests: 1,
+            passedTests: 1,
+            failedTests: 0,
+            skippedTests: 0,
+          },
+          packages: [
+            {
+              name: "ci",
+              suites: [
+                {
+                  id: "fixture-suite",
+                  rawArtifacts: [
+                    {
+                      relativePath: "fixture.log",
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+    );
+    fs.writeFileSync(path.join(outputDir, "index.html"), "<html></html>\n");
+    fs.writeFileSync(path.join(outputDir, "modules.json"), "{}\n");
+    fs.writeFileSync(path.join(outputDir, "ownership.json"), "{}\n");
+    fs.writeFileSync(path.join(rawDir, "fixture.log"), "ok\n");
 
-  assert.equal(payload.projectKey, "autoresearch-jung");
-  assert.ok(Array.isArray(payload.artifacts));
-  assert.ok(payload.artifacts.some((entry) => entry.relativePath === "report.json"));
-  assert.equal(payload.source.buildNumber, 902);
-  assert.ok(payload.source.commitSha);
+    const payload = createIngestPayload({
+      reportPath,
+      projectKey: "autoresearch-jung",
+      outputDir,
+      buildStartedAt: "2026-03-16T05:00:00Z",
+      buildCompletedAt: "2026-03-16T05:00:12Z",
+      buildNumber: 902,
+      repoRoot,
+    });
+
+    assert.equal(payload.projectKey, "autoresearch-jung");
+    assert.ok(Array.isArray(payload.artifacts));
+    assert.ok(payload.artifacts.some((entry) => entry.relativePath === "report.json"));
+    assert.equal(payload.source.buildNumber, 902);
+    assert.ok(payload.source.commitSha);
+    assert.equal(payload.report.packages[0].suites[0].rawArtifacts[0].sourceUrl, null);
+  } finally {
+    fs.rmSync(outputDir, { recursive: true, force: true });
+  }
 });
